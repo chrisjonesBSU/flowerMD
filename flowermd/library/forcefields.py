@@ -481,3 +481,60 @@ class TableForcefield(BaseHOOMDForcefield):
                         "number of points for table energies and forces."
                     )
         return bond_width, angle_width, dih_width
+
+
+class PEKK_CG(BaseHOOMDForcefield):
+    """Creates a forcefield for coarse-grained PEKK at the desired T/I ratio.
+
+    Parameters
+    ----------
+    TI_ratio: float, required
+        The T/I ratio (para-to-meta ratio) for PEKK to model.
+        Available choices are 1.0, 0.80, 0.70, 0.60.
+
+    """
+
+    def __init__(self, TI_ratio):
+        self.TI_ratio = TI_ratio
+        hoomd_forces = self._create_forcefield()
+        super(PEKK_CG, self).__init__(hoomd_forces)
+
+    def _create_forcefield(self):
+        forces = []
+        table_ff = TableForcefield.from_files(
+            pairs={
+                ("E", "E"): os.path.join(
+                    FF_DIR, "pekk-coarse-grain/", "E-E_pair.txt"
+                ),
+                ("K", "K"): os.path.join(
+                    FF_DIR, "pekk-coarse-grain/", "K-K_pair.txt"
+                ),
+                ("E", "K"): os.path.join(
+                    FF_DIR, "pekk-coarse-grain/", "E-K_pair.txt"
+                ),
+            },
+            angles={
+                "E-K-K": os.path.join(
+                    FF_DIR,
+                    "pekk-coarse-grain/",
+                    f"E-K-K_angle_{self.TI_ratio}.txt",
+                ),
+                "K-E-K": os.path.join(
+                    FF_DIR,
+                    "pekk-coarse-grain/",
+                    "K-E-K_angle.txt",
+                ),
+            },
+        )
+        forces.extend(table_ff.hoomd_forces)
+
+        bond = hoomd.md.bond.Harmonic()
+        bond.params["E-K"] = dict(k=850, r0=1.47)
+        bond.params["K-K"] = dict(k=1450, r0=1.53)
+        forces.append(bond)
+
+        dihedral = hoomd.md.dihedral.Periodic()
+        dihedral.params["E-K-K-E"] = {"k": 16, "phi0": 0, "d": -1, "n": 1}
+        dihedral.params["K-E-K-K"] = {"k": 12, "phi0": 0, "d": -1, "n": 1}
+        forces.append(dihedral)
+        return forces
