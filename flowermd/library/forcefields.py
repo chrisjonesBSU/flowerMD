@@ -483,8 +483,26 @@ class TableForcefield(BaseHOOMDForcefield):
         return bond_width, angle_width, dih_width
 
 
-class PEKK_CG(BaseHOOMDForcefield):
+class PEKK_CG_FF(BaseHOOMDForcefield):
     """Creates a forcefield for coarse-grained PEKK at the desired T/I ratio.
+
+    Notes
+    -----
+    This coarse-grain model uses a bead mapping scheme of 1 bead per
+    phenyl ring plus its linkage group. In order to use this forcefield
+    the corresponding bead mapping and sequence should be [E-K-K]n.
+
+    The para and meta monomers in this approachare modeled by the E-K-K angle
+    potential. The correct angle potential will be selected by the TI_ratio
+    choice.
+
+    An example on how to use this model within flowermd:
+        .. code-block:: python
+            pekk = PEKK(lengths=10, num_mols=10)
+            cg_mapping = {"E": "c1ccc(O)cc1" ,"K": "c1ccc(C=O)cc1"}
+            pekk.coarse_grain(beads=cg_mapping)
+
+
 
     Parameters
     ----------
@@ -497,7 +515,7 @@ class PEKK_CG(BaseHOOMDForcefield):
     def __init__(self, TI_ratio):
         self.TI_ratio = TI_ratio
         hoomd_forces = self._create_forcefield()
-        super(PEKK_CG, self).__init__(hoomd_forces)
+        super(PEKK_CG_FF, self).__init__(hoomd_forces)
 
     def _create_forcefield(self):
         forces = []
