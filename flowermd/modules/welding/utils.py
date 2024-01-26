@@ -11,6 +11,9 @@ def add_void_particles(
     This method adds void particles to the snapshot and creates the necessary
     LJ force objects to simulate them.
 
+    The void particle is used to create surface voids (i.e. flaws) on one
+    of the volumes edges
+
     Parameters
     ----------
     snapshot: hoomd.snapshot.Snapshot, required
@@ -23,11 +26,20 @@ def add_void_particles(
         The axis along which to add void particles.
     void_diameter: float, required
         The sigma parameter of the 12-6 LJ for the void particles.
-        The sigma parameter of the void particle's 12-6
+        The sigma parameter of the void particle's 12-6 LJ potential.
     epsilon: float, required
-        The epsilon parameter for the void particle's 12-6 LJ.
+        The epsilon parameter for the void particle's 12-6 LJ potential.
     r_cut: float, required
-        The cutoff radius for the void particles LJ.
+        The cutoff radius for the void particles 12-6 LJ potential.
+
+    Returns
+    -------
+    snapshot : gsd.hoomd.Frame
+        New snapshot, containing the complete topology of the input snapshot
+        plus the additional void particles
+    forcefield : list
+        List of the input hoomd forces with the pair potential modified
+        to include forces between all particles and the new void particle.
 
     """
     void_axis = np.asarray(void_axis)

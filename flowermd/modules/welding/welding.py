@@ -22,6 +22,10 @@ class Interface:
         Distance (in simulation units) between the two slabs at the interface.
     wall_sigma : float
         Sigma parameter used for the wall potential when creating the slabs.
+    remove_void_particles : float, default True
+        If the input GSD files contain void particles, they will be removed
+        when the interface is built.
+        See: `flowermd.modules.utils.add_void_particles`
 
     """
 
