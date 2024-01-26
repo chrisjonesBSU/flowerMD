@@ -25,7 +25,7 @@ class Interface:
     remove_void_particles : float, default True
         If the input GSD files contain void particles, they will be removed
         when the interface is built.
-        See: `flowermd.modules.utils.add_void_particles`
+        See: `flowermd.modules.welding.utils.add_void_particles`
 
     """
 
