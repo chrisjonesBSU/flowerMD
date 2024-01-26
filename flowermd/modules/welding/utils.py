@@ -22,9 +22,10 @@ def add_void_particles(
     void_axis: tuple of int, required
         The axis along which to add void particles.
     void_diameter: float, required
-        The diameter of the void particles.
+        The sigma parameter of the 12-6 LJ for the void particles.
+        The sigma parameter of the void particle's 12-6
     epsilon: float, required
-        The epsilon parameter for the void particles LJ.
+        The epsilon parameter for the void particle's 12-6 LJ.
     r_cut: float, required
         The cutoff radius for the void particles LJ.
 
