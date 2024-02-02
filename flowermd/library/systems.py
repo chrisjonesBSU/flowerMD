@@ -1,3 +1,14 @@
 """Examples for the Systems class."""
 
-# This is a placeholder for any class that inherits from base.system
+from flowermd.base import System
+
+
+class SimpleLattice(System):
+    """Build simple lattice system."""
+
+    def __init__(
+        self,
+        molecules,
+        spacing,
+    ):
+        pass
