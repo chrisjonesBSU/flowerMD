@@ -1,7 +1,6 @@
 import os
 
 import forcefield_utilities as ffutils
-import hoomd
 from gmso.parameterization import apply
 
 from flowermd.assets import FF_DIR
@@ -61,6 +60,8 @@ def _include_hydrogen(connections, hydrogen_types):
 
 
 def _validate_hoomd_ff(forcefields, topology_information, ignore_hydrogen=True):
+    import hoomd
+
     pair_forces = []
     bond_forces = []
     angle_forces = []
