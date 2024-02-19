@@ -18,12 +18,12 @@ repos:
       - id: trailing-whitespace
         exclude: 'flowermd/tests/assets/.* | flowermd/assets/.*'
   - repo: https://github.com/psf/black
-    rev: 23.11.0
+    rev: 24.2.0
     hooks:
       - id: black
         args: [ --line-length=80 ]
   - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
+    rev: 5.13.2
     hooks:
       - id: isort
         name: isort (python)
@@ -32,7 +32,7 @@ repos:
         exclude: 'flowermd/tests/assets/.* '
 
   - repo: https://github.com/pycqa/flake8
-    rev: 6.1.0
+    rev: 7.0.0
     hooks:
       - id: flake8
         args:
@@ -43,5 +43,5 @@ repos:
     rev: '6.3.0'
     hooks:
       - id: pydocstyle
-        exclude: ^(flowermd/tests/|flowermd/utils/|setup.py|flowermd/__version__.py|docs/)
+        exclude: ^(flowermd/tests/|flowermd/internal/|flowermd/utils|setup.py|flowermd/__version__.py|docs/)
         args: [ --convention=numpy ]

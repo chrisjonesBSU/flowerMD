@@ -1,10 +1,13 @@
 """Base class for all flowerMD molecules, Polymers, and CoPolymers."""
+
 import itertools
 import os.path
 import random
 from typing import List
 
 import mbuild as mb
+import numpy as np
+from cmeutils.geometry import angle_between_vectors, get_backbone_vector
 from gmso.core.topology import Topology
 from gmso.external.convert_mbuild import from_mbuild, to_mbuild
 from gmso.parameterization import apply
@@ -12,9 +15,9 @@ from grits import CG_Compound
 from mbuild.lib.recipes import Polymer as mbPolymer
 
 from flowermd.base import BaseHOOMDForcefield, BaseXMLForcefield
-from flowermd.utils import check_return_iterable
-from flowermd.utils.exceptions import ForceFieldError, MoleculeLoadError
-from flowermd.utils.ff_utils import _validate_hoomd_ff
+from flowermd.internal import check_return_iterable
+from flowermd.internal.exceptions import ForceFieldError, MoleculeLoadError
+from flowermd.internal.ff_utils import _validate_hoomd_ff
 
 
 class Molecule:
@@ -31,7 +34,7 @@ class Molecule:
         Number of molecules to generate.
     force_field : flowermd.ForceField or a list of
         `hoomd.md.force.Force` objects, default=None
-        The force field to be applied to the molecule for parameterization.
+        The forcefield to be applied to the molecule for parameterization.
         Note that setting `force_field` does not actually apply the
         forcefield to the molecule. The forcefield in this step is mainly
         used for validation purposes.
@@ -203,6 +206,30 @@ class Molecule:
                     msg=f"Unable to load the molecule from smiles "
                     f"{self.smiles}."
                 )
+
+    def _align_backbones_z_axis(self, heavy_atoms_only=False):
+        backbone_direction = np.array([0, 0, 1])
+        for mol in self.molecules:
+            if heavy_atoms_only:
+                positions = np.array(
+                    [
+                        p.xyz[0]
+                        for p in mol.particles()
+                        if p.element.symbol != "H"
+                    ]
+                )
+            else:
+                positions = mol.xyz
+            backbone = get_backbone_vector(positions)
+            rotate_by = angle_between_vectors(
+                backbone, np.array([0, 1, 0]), degrees=False, min_angle=False
+            )
+            mol.rotate(theta=rotate_by, around=np.array([0, 0, 1]))
+            backbone = get_backbone_vector(mol.xyz)
+            rotate_by = angle_between_vectors(
+                backbone, backbone_direction, degrees=False, min_angle=False
+            )
+            mol.rotate(theta=rotate_by, around=np.array([1, 0, 0]))
 
     def _generate(self):
         """Generate all the molecules by replicating the loaded molecule."""
@@ -430,8 +457,12 @@ class Polymer(Molecule):
         The smiles string of the monomer to generate.
     file : str, default None
         The file path to the monomer to generate.
-    force_field : str, default None
-        The force field to apply to the molecule.
+    force_field : flowermd.ForceField or a list of
+        `hoomd.md.force.Force` objects, default=None
+        The forcefield to be applied to the molecule for parameterization.
+        Note that setting `force_field` does not actually apply the
+        forcefield to the molecule. The forcefield in this step is mainly
+        used for validation purposes.
     bond_indices: list, default None
         The indices of the atoms to bond.
     bond_length: float, default None
@@ -502,6 +533,8 @@ class CoPolymer(Molecule):
         Class of the B-type monomer
     length : int, required
         The total number of monomers in the molecule
+    num_mols : int, required
+        Number of chains to generate.
     sequence : str, default None
         Manually define the sequence of 'A' and 'B' monomers.
         Leave as None if generating random sequences.
@@ -509,6 +542,12 @@ class CoPolymer(Molecule):
     AB_ratio : float, default 0.50
         The relative weight of A to B monomer types.
         Used when generating random sequences.
+    force_field : flowermd.ForceField or a list of
+        `hoomd.md.force.Force` objects, default=None
+        The forcefield to be applied to the molecule for parameterization.
+        Note that setting `force_field` does not actually apply the
+        forcefield to the molecule. The forcefield in this step is mainly
+        used for validation purposes.
     seed : int, default 24
         Set the seed used when generating random sequences
 

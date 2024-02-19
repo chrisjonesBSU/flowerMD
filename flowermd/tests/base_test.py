@@ -3,6 +3,7 @@ import os
 import hoomd
 import mbuild as mb
 import pytest
+import unyt as u
 from gmso.external.convert_mbuild import from_mbuild
 
 from flowermd import Molecule, Pack, Polymer, Simulation
@@ -218,7 +219,7 @@ class BaseTest:
         benzene = Molecule(num_mols=20, compound=benzene_mb)
         system = Pack(
             molecules=[benzene],
-            density=0.2,
+            density=0.2 * u.g / u.cm**3,
         )
         system.apply_forcefield(
             r_cut=2.5, force_field=OPLS_AA(), auto_scale=True
@@ -267,3 +268,19 @@ class BaseTest:
             },
         )
         return ff.hoomd_forces
+
+    @pytest.fixture()
+    def polyethylene_droplet(self):
+        return os.path.join(ASSETS_DIR, "polyethylene_droplet.gsd")
+
+    @pytest.fixture()
+    def graphene_snapshot(self):
+        return os.path.join(ASSETS_DIR, "graphene_snapshot.gsd")
+
+    @pytest.fixture()
+    def surface_wetting_init_snapshot(self):
+        return os.path.join(ASSETS_DIR, "surface_wetting_init.gsd")
+
+    @pytest.fixture()
+    def surface_wetting_init_ff(self):
+        return os.path.join(ASSETS_DIR, "surface_wetting_ff.pkl")

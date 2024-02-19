@@ -1,4 +1,5 @@
 """Library of predefined molecules, recipes and forcefields."""
+
 from .forcefields import (
     GAFF,
     OPLS_AA,
@@ -10,6 +11,7 @@ from .forcefields import (
     BaseXMLForcefield,
     BeadSpring,
     FF_from_file,
+    KremerGrestBeadSpring,
     TableForcefield,
 )
 from .polymers import (
