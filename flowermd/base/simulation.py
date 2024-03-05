@@ -1,6 +1,7 @@
 """Base simulation class for flowerMD."""
 
 import inspect
+import json
 import pickle
 import warnings
 
@@ -1000,6 +1001,10 @@ class Simulation(hoomd.simulation.Simulation):
         """
         f = open(file_path, "wb")
         pickle.dump(self._forcefield, f)
+
+    def save_reference_valeus(self, file_path="reference_values.json"):
+        with open(file_path, "w") as f:
+            json.dump(self.reference_values, f)
 
     def save_restart_gsd(self, file_path="restart.gsd"):
         """Save a GSD file of the current simulation state.

@@ -404,6 +404,10 @@ class System(ABC):
         with gsd.hoomd.open(file_name, "w") as traj:
             traj.append(self.hoomd_snapshot)
 
+    def save_reference_valeus(self, file_path="reference_values.json"):
+        with open(file_path, "w") as f:
+            json.dump(self.reference_values, f)
+
     def _convert_to_gmso(self):
         """Convert the mbuild system to a gmso system."""
         topology = from_mbuild(self.system)
