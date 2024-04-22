@@ -629,6 +629,7 @@ class PEKK_CG_FF(BaseHOOMDForcefield):
         dihedral.params["E-K-K-E"] = {"k": 16, "phi0": 0, "d": -1, "n": 1}
         dihedral.params["K-E-K-K"] = {"k": 12, "phi0": 0, "d": -1, "n": 1}
         forces.append(dihedral)
+        return forces
 
 
 class EllipsoidForcefield(BaseHOOMDForcefield):
