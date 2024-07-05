@@ -34,6 +34,7 @@ class Tensile(Simulation):
         gsd_file_name="trajectory.gsd",
         log_write_freq=1e3,
         log_file_name="log.txt",
+        log_particles=False,
         thermostat=HOOMDThermostats.MTTK,
     ):
         super(Tensile, self).__init__(
@@ -47,6 +48,7 @@ class Tensile(Simulation):
             gsd_file_name=gsd_file_name,
             log_write_freq=log_write_freq,
             log_file_name=log_file_name,
+            log_particles=log_particles,
             thermostat=thermostat,
         )
         self.tensile_axis = np.asarray(tensile_axis)
