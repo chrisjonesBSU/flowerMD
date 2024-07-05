@@ -34,6 +34,7 @@ class Tensile(Simulation):
         gsd_file_name="trajectory.gsd",
         log_write_freq=1e3,
         log_file_name="log.txt",
+        log_stress_real_time=True,
         log_particles=False,
         thermostat=HOOMDThermostats.MTTK,
     ):
@@ -74,17 +75,21 @@ class Tensile(Simulation):
         # Set up logger and data structures
         # Make a list of arrays, one for each time Tensile.run() is called.
         self._initial_timestep = np.copy(self.timestep)
+        self._log_stress_real_time = log_stress_real_time
         self._run_strain = None
         self._run_stress = None
         self._strain_logs = []
         self._stress_logs = []
         # Set up custom action
-        tensile_log = StressStrainLogger(sim=self, pull_axis=self._axis_index)
-        tensile_logger = hoomd.update.CustomUpdater(
-            trigger=hoomd.trigger.Periodic(int(log_write_freq)),
-            action=tensile_log,
-        )
-        self.operations.updaters.append(tensile_logger)
+        if self.log_stress_real_time:
+            tensile_log = StressStrainLogger(
+                sim=self, pull_axis=self._axis_index
+            )
+            tensile_logger = hoomd.update.CustomUpdater(
+                trigger=hoomd.trigger.Periodic(int(log_write_freq)),
+                action=tensile_log,
+            )
+            self.operations.updaters.append(tensile_logger)
 
     @property
     def strain(self):
@@ -96,14 +101,45 @@ class Tensile(Simulation):
 
     @property
     def strain_data(self):
+        """Combines strain data collected for all tensile runs."""
+        if not self.log_stress_real_time:
+            raise ValueError(
+                "Strain data is not available. "
+                "Set `log_stress_real_time` to `True` to "
+                "log strain and stress data in real time. "
+            )
         return np.concatenate(self._strain_logs)
 
     @property
     def stress_data(self):
+        """Combines stress data collected for all tensile runs."""
+        if not self.log_stress_real_time:
+            raise ValueError(
+                "Stress data is not available. "
+                "Set `log_stress_real_time` to `True` to "
+                "log strain and stress data in real time. "
+            )
         return np.concatenate(self._stress_logs)
 
     def compile_stress_strain_data(self):
-        """"""
+        """Perofmrs averaging with errors for the
+        saved strain and stress run logs.
+
+        Uses numpy.mean() and numpy.std() to
+        calculate averages and errors.
+
+        Returns
+        -------
+        tuple of np.ndarray
+            (strain, stress averages, stress errors)
+
+        """
+        if not self.log_stress_real_time:
+            raise ValueError(
+                "Stress data is not available. "
+                "Set `log_stress_real_time` to `True` to "
+                "log strain and stress data in real time. "
+            )
         strains = np.unique(self.strain_data)
         stress_means = np.zeros_like(strains)
         stress_stds = np.zeros_like(strains)
@@ -113,6 +149,18 @@ class Tensile(Simulation):
             stress_means[idx] = np.mean(stress_values)
             stress_stds[idx] = np.std(stress_values)
         return (strains, stress_means, stress_stds)
+
+    def save_stress_strain_data(self, filename):
+        """Save the compiled stress vs strain data to file.
+
+        filename : str, required
+            Filepath to save the numpy array to.
+            Must be a file type compatible with numpy.save()
+
+        """
+        strain, stress_avg, stress_std = self.compile_stress_strain_data()
+        data = np.vstack([strain, stress_avg, stress_std]).T
+        np.save(data, filename)
 
     def run_tensile(self, strain, n_steps, kT, tau_kt, period):
         """Run a tensile test simulation.
@@ -129,9 +177,10 @@ class Tensile(Simulation):
             The period of the strain application.
 
         """
-        log_array_size = int(n_steps // self.log_write_freq) + 1
-        self._run_strain = np.zeros(log_array_size)
-        self._run_stress = np.zeros(log_array_size)
+        if self.log_stress_real_time:
+            log_array_size = int(n_steps // self.log_write_freq) + 1
+            self._run_strain = np.zeros(log_array_size)
+            self._run_stress = np.zeros(log_array_size)
         current_length = self.box_lengths_reduced[self._axis_index]
         final_length = current_length * (1 + strain)
         final_box = np.copy(self.box_lengths_reduced)
@@ -160,5 +209,6 @@ class Tensile(Simulation):
         self.operations.updaters.append(box_resizer)
         self.operations.updaters.append(particle_updater)
         self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kt=tau_kt)
-        self._strain_logs.append(self._run_strain)
-        self._stress_logs.append(self._run_stress)
+        if self.log_stress_real_time:
+            self._strain_logs.append(self._run_strain)
+            self._stress_logs.append(self._run_stress)
