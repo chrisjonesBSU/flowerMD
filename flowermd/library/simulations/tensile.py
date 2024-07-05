@@ -58,6 +58,7 @@ class Tensile(Simulation):
         self.initial_box = self.box_lengths_reduced
         self.initial_length = self.initial_box[self._axis_index]
         self.fix_length = self.initial_length * fix_ratio
+        self.log_stress_real_time = log_stress_real_time
         # Set up walls of fixed particles:
         snapshot = self.state.get_snapshot()
         positions = snapshot.particles.position[:, self._axis_index]
@@ -75,7 +76,6 @@ class Tensile(Simulation):
         # Set up logger and data structures
         # Make a list of arrays, one for each time Tensile.run() is called.
         self._initial_timestep = np.copy(self.timestep)
-        self._log_stress_real_time = log_stress_real_time
         self._run_strain = None
         self._run_stress = None
         self._strain_logs = []

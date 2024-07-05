@@ -48,7 +48,7 @@ class StressStrainLogger(hoomd.custom.Action):
         self.axis = pull_axis
         self.log_freq = sim.log_write_freq
         tensor_index_map = {0: 0, 1: 3, 2: 5}
-        self.tensor_log_axis = tensor_index_map[int(self.axis)]
+        self.tensor_log_axis = tensor_index_map[int(self.axis[0])]
 
     def act(self, timestep):
         strain = np.round(self.sim.strain[0], 6)
