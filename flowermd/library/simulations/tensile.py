@@ -160,7 +160,7 @@ class Tensile(Simulation):
         """
         strain, stress_avg, stress_std = self.compile_stress_strain_data()
         data = np.vstack([strain, stress_avg, stress_std]).T
-        np.save(data, filename)
+        np.save(file=filename, arr=data)
 
     def run_tensile(self, strain, n_steps, kT, tau_kt, period):
         """Run a tensile test simulation.
