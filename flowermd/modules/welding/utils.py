@@ -59,6 +59,9 @@ def add_void_particles(
     )
     # Updated LJ params
     lj = [i for i in forcefield if isinstance(i, hoomd.md.pair.LJ)][0]
+    if len(lj) == 0:
+        pass
+        # Create new LJ force
     for ptype in snapshot.particles.types:
         lj.params[(ptype, "VOID")] = {
             "sigma": void_diameter,
