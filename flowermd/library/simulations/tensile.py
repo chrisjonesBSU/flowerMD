@@ -122,7 +122,7 @@ class Tensile(Simulation):
         return np.concatenate(self._stress_logs)
 
     def compile_stress_strain_data(self):
-        """Perofmrs averaging with errors for the
+        """Performs averaging with errors for the
         saved strain and stress run logs.
 
         Uses numpy.mean() and numpy.std() to
@@ -130,7 +130,7 @@ class Tensile(Simulation):
 
         Returns
         -------
-        tuple of np.ndarray
+        tuple of numpy.ndarray
             (strain, stress averages, stress errors)
 
         """
