@@ -42,6 +42,22 @@ class PullParticles(hoomd.custom.Action):
             snap.particles.position[pos_filter] += self.shift_by * self.axis
 
 
+class StressStrainLogger(hoomd.custom.Action):
+    def __init__(self, sim, pull_axis):
+        self.sim = sim
+        self.axis = pull_axis
+        self.log_freq = sim.log_write_freq
+        tensor_index_map = {0: 0, 1: 3, 2: 5}
+        self.tensor_log_axis = tensor_index_map[int(self.axis)]
+
+    def act(self, timestep):
+        strain = np.round(self.sim.strain[0], 6)
+        stress = self.sim.operations.computes[0].pressure_tensor
+        array_index = (timestep - self.sim._initial_timestep) // self.log_freq
+        self.sim._run_strain[array_index] = strain
+        self.sim._run_stress[array_index] = stress[self.tensor_log_axis]
+
+
 class UpdateWalls(hoomd.custom.Action):
     def __init__(self, sim):
         self.sim = sim

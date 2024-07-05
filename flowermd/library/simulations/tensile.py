@@ -4,7 +4,7 @@ import hoomd
 import numpy as np
 
 from flowermd.base.simulation import Simulation
-from flowermd.utils import HOOMDThermostats, PullParticles
+from flowermd.utils import HOOMDThermostats, PullParticles, StressStrainLogger
 
 
 class Tensile(Simulation):
@@ -53,7 +53,7 @@ class Tensile(Simulation):
         )
         self.tensile_axis = np.asarray(tensile_axis)
         self.fix_ratio = fix_ratio
-        self._axis_index = np.where(self.tensile_axis != 0)[0]
+        self._axis_index = np.where(self.tensile_axis != 0)[0].astype(int)
         self.initial_box = self.box_lengths_reduced
         self.initial_length = self.initial_box[self._axis_index]
         self.fix_length = self.initial_length * fix_ratio
@@ -71,6 +71,20 @@ class Tensile(Simulation):
         self.integrate_group = hoomd.filter.SetDifference(
             hoomd.filter.All(), all_fixed
         )
+        # Set up logger and data structures
+        # Make a list of arrays, one for each time Tensile.run() is called.
+        self._initial_timestep = np.copy(self.timestep)
+        self._run_strain = None
+        self._run_stress = None
+        self._strain_logs = []
+        self._stress_logs = []
+        # Set up custom action
+        tensile_log = StressStrainLogger(sim=self, pull_axis=self._axis_index)
+        tensile_logger = hoomd.update.CustomUpdater(
+            trigger=hoomd.trigger.Periodic(int(log_write_freq)),
+            action=tensile_log,
+        )
+        self.operations.updaters.append(tensile_logger)
 
     @property
     def strain(self):
@@ -79,6 +93,26 @@ class Tensile(Simulation):
             self.box_lengths_reduced[self._axis_index] - self.initial_length
         )
         return delta_L / self.initial_length
+
+    @property
+    def strain_data(self):
+        return np.concatenate(self._strain_logs)
+
+    @property
+    def stress_data(self):
+        return np.concatenate(self._stress_logs)
+
+    def compile_stress_strain_data(self):
+        """"""
+        strains = np.unique(self.strain_data)
+        stress_means = np.zeros_like(strains)
+        stress_stds = np.zeros_like(strains)
+        for idx, strain in enumerate(strains):
+            indices = np.where(self.strain_data == strain)[0]
+            stress_values = self.stress_data[indices]
+            stress_means[idx] = np.mean(stress_values)
+            stress_stds[idx] = np.std(stress_values)
+        return (strains, stress_means, stress_stds)
 
     def run_tensile(self, strain, n_steps, kT, tau_kt, period):
         """Run a tensile test simulation.
@@ -95,6 +129,9 @@ class Tensile(Simulation):
             The period of the strain application.
 
         """
+        log_array_size = int(n_steps // self.log_write_freq) + 1
+        self._run_strain = np.zeros(log_array_size)
+        self._run_stress = np.zeros(log_array_size)
         current_length = self.box_lengths_reduced[self._axis_index]
         final_length = current_length * (1 + strain)
         final_box = np.copy(self.box_lengths_reduced)
@@ -123,3 +160,5 @@ class Tensile(Simulation):
         self.operations.updaters.append(box_resizer)
         self.operations.updaters.append(particle_updater)
         self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kt=tau_kt)
+        self._strain_logs.append(self._run_strain)
+        self._stress_logs.append(self._run_stress)
