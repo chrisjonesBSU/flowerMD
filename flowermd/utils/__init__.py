@@ -6,6 +6,7 @@ from .actions import (
     ScaleEpsilon,
     ScaleSigma,
     StdOutLogger,
+    StressStrainLogger,
     UpdateWalls,
 )
 from .base_types import HOOMDThermostats
