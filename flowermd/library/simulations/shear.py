@@ -65,11 +65,11 @@ class Shear(Simulation):
         if self.reference_values:
             conv_factor = (
                 self.reference_mass.to("kg") * self.reference_length.to("m")
-            ) / u.Unit("s**2")
+            ) / (self.real_timestep.to("s") ** 2)
         else:
             conv_factor = 1
-        left_shear = self.shear_force_reduced[0] * conv_factor
-        right_shear = self.shear_force_reduced[1] * conv_factor
+        left_shear = self.shear_forces_reduced[0] * conv_factor
+        right_shear = self.shear_forces_reduced[1] * conv_factor
         return (left_shear, right_shear)
 
     def add_shear_forces(
@@ -88,11 +88,11 @@ class Shear(Simulation):
             shear_force = shear_force.to("N")
             conv_factor = (
                 self.reference_mass.to("kg") * self.reference_length.to("m")
-            ) / u.Unit("s**2")
+            ) / (self.real_timestep.to("s") ** 2)
             # This is the shear force in reduced units
             shear_force /= conv_factor
-            self._shear_left_force = shear_force
-            self._shear_right_force = -shear_force
+            self._shear_left_force = shear_force.value
+            self._shear_right_force = -1 * shear_force.value
         # Create set of particles to apply shear force
         normal_index = np.where(shear_normal != 0)[0]
         snapshot = self.state.get_snapshot()
@@ -106,8 +106,10 @@ class Shear(Simulation):
         # Create 2 force objects, set equal and opposite shear forces
         shear_left_force = hoomd.md.force.Constant(filter=shear_left)
         shear_right_force = hoomd.md.force.Constant(filter=shear_right)
-        shear_left_force[self.state.particle_types] = shear_force
-        shear_right_force[self.state.particle_types] = -shear_force
+        shear_left_force.constant_force[self.state.particle_types] = shear_force
+        shear_right_force.constant_force[self.state.particle_types] = (
+            -1 * shear_force
+        )
         self.add_force(shear_left_force)
         self.add_force(shear_right_force)
         self._shear_forces.extend([shear_left_force, shear_right_force])
