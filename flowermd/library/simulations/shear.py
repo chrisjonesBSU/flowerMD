@@ -106,8 +106,8 @@ class Shear(Simulation):
         # Create 2 force objects, set equal and opposite shear forces
         shear_left_force = hoomd.md.force.Constant(filter=shear_left)
         shear_right_force = hoomd.md.force.Constant(filter=shear_right)
-        shear_left_force.params[self.state.particle_types] = shear_force
-        shear_right_force.params[self.state.particle_types] = -shear_force
+        shear_left_force[self.state.particle_types] = shear_force
+        shear_right_force[self.state.particle_types] = -shear_force
         self.add_force(shear_left_force)
         self.add_force(shear_right_force)
         self._shear_forces.extend([shear_left_force, shear_right_force])
