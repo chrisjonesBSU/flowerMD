@@ -28,18 +28,39 @@ class StdOutLogger(hoomd.custom.Action):
 
 
 class PullParticles(hoomd.custom.Action):
-    def __init__(self, shift_by, axis, neg_filter, pos_filter):
+    def __init__(
+        self, shift_by, axis, neg_filter, pos_filter, box, apply_pbc=False
+    ):
         self.shift_by = shift_by
         self.axis = axis
+        self.axis_index = np.where(axis != 0)[0]
+        self.box_axis_length = box[self.axis_index]
         self.neg_filter = neg_filter
         self.pos_filter = pos_filter
+        self.apply_pbc = apply_pbc
 
     def act(self, timestep):
         with self._state.cpu_local_snapshot as snap:
             neg_filter = snap.particles.rtag[self.neg_filter.tags]
             pos_filter = snap.particles.rtag[self.pos_filter.tags]
-            snap.particles.position[neg_filter] -= self.shift_by * self.axis
-            snap.particles.position[pos_filter] += self.shift_by * self.axis
+            if self.apply_pbc:
+                neg_xyz = (
+                    snap.particles.position[neg_filter]
+                    - self.shift_by * self.axis
+                )
+                pos_xyz = (
+                    snap.particles.position[pos_filter]
+                    + self.shift_by * self.axis
+                )
+                neg_outside = np.where(neg_xyz < -self.box_axis_length / 2)
+                pos_outside = np.where(neg_xyz > self.box_axis_length / 2)
+                neg_xyz[neg_outside] += self.box_axis_length
+                pos_xyz[pos_outside] -= self.box_axis_length
+                snap.particles.position[neg_filter] = neg_xyz
+                snap.particles.position[pos_filter] = pos_xyz
+            else:
+                snap.particles.position[neg_filter] -= self.shift_by * self.axis
+                snap.particles.position[pos_filter] += self.shift_by * self.axis
 
 
 class UpdateWalls(hoomd.custom.Action):
