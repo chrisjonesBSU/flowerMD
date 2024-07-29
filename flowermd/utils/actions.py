@@ -52,8 +52,8 @@ class PullParticles(hoomd.custom.Action):
                     snap.particles.position[pos_filter]
                     + self.shift_by * self.axis
                 )
-                neg_outside = np.where(neg_xyz < -self.box_axis_length / 2)
-                pos_outside = np.where(neg_xyz > self.box_axis_length / 2)
+                neg_outside = np.where(neg_xyz[:,self.axis_index] < -self.box_axis_length / 2)[0]
+                pos_outside = np.where(neg_xyz[:,self.axis_index] > self.box_axis_length / 2)[0]
                 neg_xyz[neg_outside] += self.box_axis_length
                 pos_xyz[pos_outside] -= self.box_axis_length
                 snap.particles.position[neg_filter] = neg_xyz

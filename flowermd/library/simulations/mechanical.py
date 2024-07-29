@@ -108,10 +108,10 @@ class Shear(Simulation):
             The period of the strain application.
 
         """
-        current_length = self.box_lengths_reduced[self._normal_axis_index]
+        current_length = self.box_lengths_reduced[self._shear_axis_index]
         final_length = current_length * (1 + strain)
         shift_by = (final_length - current_length) / (n_steps // period)
-        resize_trigger = hoomd.trigger.Periodic(period)
+        resize_trigger = hoomd.trigger.Periodic(int(period))
         particle_puller = PullParticles(
             shift_by=shift_by / 2,
             axis=self.shear_axis,
