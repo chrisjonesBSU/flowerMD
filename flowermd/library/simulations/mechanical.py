@@ -94,7 +94,14 @@ class Shear(Simulation):
         )
 
     def run_shear(
-        self, strain, shear_length, n_steps, kT, tau_kt, period, ensemble="NVT"
+        self,
+        n_steps,
+        kT,
+        tau_kt,
+        period,
+        strain=None,
+        shear_length=None,
+        ensemble="NVT"
     ):
         """Run a shear simulation.
 
