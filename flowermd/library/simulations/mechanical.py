@@ -97,7 +97,7 @@ class Shear(Simulation):
         self,
         n_steps,
         kT,
-        tau_kt,
+        tau_kT,
         period,
         strain=None,
         shear_length=None,
@@ -142,7 +142,7 @@ class Shear(Simulation):
         )
         self.operations.updaters.append(particle_updater)
         if ensemble.lower() == "nvt":
-            self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kt=tau_kt)
+            self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kt=tau_kT)
         if ensemble.lower() == "nve":
             self.run_NVE(n_steps=n_steps + 1, kT=kT)
         self.operations.updaters.remove(particle_updater)
