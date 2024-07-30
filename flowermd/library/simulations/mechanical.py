@@ -125,8 +125,12 @@ class Shear(Simulation):
         )
         self.operations.updaters.append(particle_updater)
         self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kt=tau_kt)
+        self.operations.updaters.remove(particle_updater)
 
-    def run_ultrasonic_shear(self):
+    def run_ultrasonic_shear(self, amplitude, frequency, n_steps, period):
+        # amplitude: strain distance
+        # frequency: Use this to calculate num steps before switching dir
+        # period: n steps between particle updates
         pass
 
 
@@ -247,3 +251,5 @@ class Tensile(Simulation):
         self.operations.updaters.append(box_resizer)
         self.operations.updaters.append(particle_updater)
         self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kt=tau_kt)
+        self.operations.updates.remove(box_resizer)
+        self.operations.updaters.remove(particle_updater)

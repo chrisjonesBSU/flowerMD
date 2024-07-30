@@ -1,3 +1,4 @@
+import freud
 import hoomd
 import numpy as np
 
@@ -34,6 +35,7 @@ class PullParticles(hoomd.custom.Action):
         self.shift_by = shift_by
         self.axis = axis
         self.axis_index = np.where(axis != 0)[0]
+        self.box = box
         self.box_axis_length = box[self.axis_index]
         self.neg_filter = neg_filter
         self.pos_filter = pos_filter
@@ -43,26 +45,11 @@ class PullParticles(hoomd.custom.Action):
         with self._state.cpu_local_snapshot as snap:
             neg_filter = snap.particles.rtag[self.neg_filter.tags]
             pos_filter = snap.particles.rtag[self.pos_filter.tags]
+            snap.particles.position[neg_filter] -= self.shift_by * self.axis
+            snap.particles.position[pos_filter] += self.shift_by * self.axis
             if self.apply_pbc:
-                snap.particles.position[neg_filter] -= self.shift_by * self.axis
-                snap.particles.position[pos_filter] += self.shift_by * self.axis
-                neg_outside = np.where(
-                    snap.particles.position[neg_filter][:, self.axis_index]
-                    < -self.box_axis_length / 2
-                )
-                pos_outside = np.where(
-                    snap.particles.position[pos_filter][:, self.axis_index]
-                    > self.box_axis_length / 2
-                )
-                snap.particles.position[neg_filter][neg_outside[0]] += (
-                    self.box_axis_length * self.axis
-                )
-                snap.particles.position[pos_filter][pos_outside[0]] -= (
-                    self.box_axis_length * self.axis
-                )
-            else:
-                snap.particles.position[neg_filter] -= self.shift_by * self.axis
-                snap.particles.position[pos_filter] += self.shift_by * self.axis
+                fbox = freud.Box(self.box[0], self.box[1], self.box[2])
+                snap.particles.position = fbox.wrap(snap.particles.position)
 
 
 class UpdateWalls(hoomd.custom.Action):
