@@ -44,20 +44,22 @@ class PullParticles(hoomd.custom.Action):
             neg_filter = snap.particles.rtag[self.neg_filter.tags]
             pos_filter = snap.particles.rtag[self.pos_filter.tags]
             if self.apply_pbc:
-                neg_xyz = (
-                    snap.particles.position[neg_filter]
-                    - self.shift_by * self.axis
+                snap.particles.position[neg_filter] -= self.shift_by * self.axis
+                snap.particles.position[pos_filter] += self.shift_by * self.axis
+                neg_outside = np.where(
+                    snap.particles.position[neg_filter][:, self.axis_index]
+                    < -self.box_axis_length / 2
                 )
-                pos_xyz = (
-                    snap.particles.position[pos_filter]
-                    + self.shift_by * self.axis
+                pos_outside = np.where(
+                    snap.particles.position[pos_filter][:, self.axis_index]
+                    > self.box_axis_length / 2
                 )
-                neg_outside = np.where(neg_xyz[:,self.axis_index] < -self.box_axis_length / 2)[0]
-                pos_outside = np.where(neg_xyz[:,self.axis_index] > self.box_axis_length / 2)[0]
-                neg_xyz[neg_outside] += self.box_axis_length
-                pos_xyz[pos_outside] -= self.box_axis_length
-                snap.particles.position[neg_filter] = neg_xyz
-                snap.particles.position[pos_filter] = pos_xyz
+                snap.particles.position[neg_filter][neg_outside[0]] += (
+                    self.box_axis_length * self.axis
+                )
+                snap.particles.position[pos_filter][pos_outside[0]] -= (
+                    self.box_axis_length * self.axis
+                )
             else:
                 snap.particles.position[neg_filter] -= self.shift_by * self.axis
                 snap.particles.position[pos_filter] += self.shift_by * self.axis
