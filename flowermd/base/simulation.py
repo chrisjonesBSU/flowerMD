@@ -950,13 +950,15 @@ class Simulation(hoomd.simulation.Simulation):
         self.run(steps=n_steps, write_at_start=write_at_start)
         self.operations.updaters.remove(std_out_logger_printer)
 
-    def run_NVE(self, n_steps, write_at_start=True):
+    def run_NVE(self, n_steps, kT, write_at_start=True):
         """Run the simulation in the NVE ensemble.
 
         Parameters
         ----------
         n_steps: int, required
             Number of steps to run the simulation.
+        kT: float, required
+            The temperature used to set initial particle velocities.
         write_at_start : bool, default True
             When set to True, triggers writers that evaluate to True
             for the initial step to execute before the next simulation
@@ -973,6 +975,7 @@ class Simulation(hoomd.simulation.Simulation):
             action=std_out_logger,
         )
         self.operations.updaters.append(std_out_logger_printer)
+        self._thermalize_system(kT)
         self.run(steps=n_steps, write_at_start=write_at_start)
         self.operations.updaters.remove(std_out_logger_printer)
 

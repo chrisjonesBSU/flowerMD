@@ -93,24 +93,34 @@ class Shear(Simulation):
             hoomd.filter.All(), all_fixed
         )
 
-    def run_shear(self, strain, n_steps, kT, tau_kt, period):
+    def run_shear(
+        self, strain, shear_length, n_steps, kT, tau_kt, period, ensemble="NVT"
+    ):
         """Run a shear simulation.
 
         Parameters
         ----------
         strain : float, required
-            The strain to apply to the simulation.
+            The strain used to calculate shearing distance.
         n_steps : int, required
             The number of steps to run the simulation for.
         tau_kt : float, required
             Thermostat coupling period (in simulation time units).
         period : int, required
-            The period of the strain application.
+            The period number of simulation steps between the strain updates.
 
         """
-        current_length = self.box_lengths_reduced[self._shear_axis_index]
-        final_length = current_length * (1 + strain)
-        shift_by = (final_length - current_length) / (n_steps // period)
+        if all([strain, shear_length]) or not any([strain, shear_length]):
+            raise ValueError("Specify only one of strain or shear_length.")
+        if strain:
+            current_length = self.box_lengths_reduced[self._shear_axis_index]
+            final_length = current_length * (1 + strain)
+            shift_by = (final_length - current_length) / (n_steps // period)
+        else:
+            if isinstance(shear_length, u.unyt_array):
+                shear_length = shear_length.to(self.reference_length.unit)
+                shear_length /= self.reference_length
+            shift_by = shear_length / (n_steps // period)
         resize_trigger = hoomd.trigger.Periodic(int(period))
         particle_puller = PullParticles(
             shift_by=shift_by / 2,
@@ -124,10 +134,13 @@ class Shear(Simulation):
             trigger=resize_trigger, action=particle_puller
         )
         self.operations.updaters.append(particle_updater)
-        self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kt=tau_kt)
+        if ensemble.lower() == "nvt":
+            self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kt=tau_kt)
+        if ensemble.lower() == "nve":
+            self.run_NVE(n_steps=n_steps + 1, kT=kT)
         self.operations.updaters.remove(particle_updater)
 
-    def run_ultrasonic_shear(self, amplitude, frequency, n_steps, period):
+    def run_ultrasonic_shearing(self, amplitude, frequency, n_steps, period):
         # amplitude: strain distance
         # frequency: Use this to calculate num steps before switching dir
         # period: n steps between particle updates
