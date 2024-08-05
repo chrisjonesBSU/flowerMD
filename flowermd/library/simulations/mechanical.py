@@ -266,6 +266,8 @@ class Tensile(Simulation):
                 tensile_length = tensile_length.to(self.reference_length.unit)
                 tensile_length /= self.reference_length
             shift_by = tensile_length / (n_steps // period)
+            final_box = np.copy(self.box_lengths_reduced)
+            final_box[self._axis_index] += tensile_length 
 
         resize_trigger = hoomd.trigger.Periodic(period)
         box_ramp = hoomd.variant.Ramp(
@@ -295,5 +297,5 @@ class Tensile(Simulation):
             self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kT=tau_kT)
         if ensemble.lower() == "nve":
             self.run_NVE(n_steps=n_steps + 1, kT=kT)
-        self.operations.updates.remove(box_resizer)
+        self.operations.updaters.remove(box_resizer)
         self.operations.updaters.remove(particle_updater)
