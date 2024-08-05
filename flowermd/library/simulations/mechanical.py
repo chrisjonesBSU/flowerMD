@@ -111,7 +111,7 @@ class Shear(Simulation):
             The strain used to calculate shearing distance.
         n_steps : int, required
             The number of steps to run the simulation for.
-        tau_kt : float, required
+        tau_kT : float, required
             Thermostat coupling period (in simulation time units).
         period : int, required
             The period number of simulation steps between the strain updates.
@@ -142,7 +142,7 @@ class Shear(Simulation):
         )
         self.operations.updaters.append(particle_updater)
         if ensemble.lower() == "nvt":
-            self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kt=tau_kT)
+            self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kT=tau_kT)
         if ensemble.lower() == "nve":
             self.run_NVE(n_steps=n_steps + 1, kT=kT)
         self.operations.updaters.remove(particle_updater)
@@ -226,7 +226,7 @@ class Tensile(Simulation):
         )
         return delta_L / self.initial_length
 
-    def run_tensile(self, strain, n_steps, kT, tau_kt, period):
+    def run_tensile(self, strain, n_steps, kT, tau_kT, period):
         """Run a tensile test simulation.
 
         Parameters
@@ -235,7 +235,7 @@ class Tensile(Simulation):
             The strain to apply to the simulation.
         n_steps : int, required
             The number of steps to run the simulation for.
-        tau_kt : float, required
+        tau_kT : float, required
             Thermostat coupling period (in simulation time units).
         period : int, required
             The period of the strain application.
@@ -270,6 +270,6 @@ class Tensile(Simulation):
         )
         self.operations.updaters.append(box_resizer)
         self.operations.updaters.append(particle_updater)
-        self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kt=tau_kt)
+        self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kT=tau_kT)
         self.operations.updates.remove(box_resizer)
         self.operations.updaters.remove(particle_updater)

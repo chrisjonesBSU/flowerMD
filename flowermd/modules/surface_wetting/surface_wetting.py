@@ -55,7 +55,7 @@ class DropletSimulation(Simulation):
         hold_kT,
         hold_steps,
         final_density,
-        tau_kt,
+        tau_kT,
     ):
         """Run droplet simulation.
 
@@ -93,7 +93,7 @@ class DropletSimulation(Simulation):
         final_density : float, required
             The low density to equilibrate the box to.
             Note: the units of the density are in g/cm^3.
-        tau_kt : float, required
+        tau_kT : float, required
             The time constant for the thermostat.
 
         """
@@ -136,7 +136,7 @@ class DropletSimulation(Simulation):
             n_steps=shrink_steps,
             period=shrink_period,
             kT=shrink_kT,
-            tau_kt=tau_kt,
+            tau_kT=tau_kT,
             final_box_lengths=target_box_shrink,
             write_at_start=True,
         )
@@ -145,11 +145,11 @@ class DropletSimulation(Simulation):
             n_steps=expand_steps,
             period=expand_period,
             kT=expand_kT,
-            tau_kt=tau_kt,
+            tau_kT=tau_kT,
             final_box_lengths=target_box_final,
         )
         # Run at low density
-        self.run_NVT(n_steps=hold_steps, kT=hold_kT, tau_kt=tau_kt)
+        self.run_NVT(n_steps=hold_steps, kT=hold_kT, tau_kT=tau_kT)
 
 
 class InterfaceBuilder:

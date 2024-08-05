@@ -41,7 +41,7 @@ class TestDropletSimulation(BaseTest):
             hold_kT=1.0,
             hold_steps=100,
             final_density=0.05 * u.g / u.cm**3,
-            tau_kt=drop_sim.dt * 100,
+            tau_kT=drop_sim.dt * 100,
         )
         assert np.isclose(
             drop_sim.density.to(u.g / u.cm**3).value, 0.05, atol=1e-2
@@ -74,7 +74,7 @@ class TestDropletSimulation(BaseTest):
                 hold_kT=1.0,
                 hold_steps=100,
                 final_density=0.05,
-                tau_kt=drop_sim.dt * 100,
+                tau_kT=drop_sim.dt * 100,
             )
             assert np.isclose(
                 drop_sim.density.to(u.g / u.cm**3).value, 0.05, atol=1e-2
@@ -107,7 +107,7 @@ class TestDropletSimulation(BaseTest):
                 hold_kT=1.0,
                 hold_steps=100,
                 final_density=0.05 * (u.cm**-3),
-                tau_kt=drop_sim.dt * 100,
+                tau_kT=drop_sim.dt * 100,
             )
             assert np.isclose(
                 drop_sim.density.to(u.g / u.cm**3).value, 0.05, atol=1e-2
@@ -206,6 +206,6 @@ class TestWettingSimulation(BaseTest):
         )
         wetting_sim.run_NVT(
             kT=1.0,
-            tau_kt=1,
+            tau_kT=1,
             n_steps=1e3,
         )

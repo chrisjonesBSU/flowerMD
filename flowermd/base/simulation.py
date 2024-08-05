@@ -665,7 +665,7 @@ class Simulation(hoomd.simulation.Simulation):
         n_steps,
         period,
         kT,
-        tau_kt,
+        tau_kT,
         thermalize_particles=True,
         write_at_start=True,
     ):
@@ -688,7 +688,7 @@ class Simulation(hoomd.simulation.Simulation):
             The number of steps ran between each box update iteration.
         kT : float or hoomd.variant.Ramp, required
             The temperature to use during volume update.
-        tau_kt : float, required
+        tau_kT : float, required
             Thermostat coupling period (in simulation time units).
         write_at_start : bool, default True
             When set to True, triggers writers that evaluate to True
@@ -724,7 +724,7 @@ class Simulation(hoomd.simulation.Simulation):
                 density=1.1 * unyt.g/unyt.cm**3, mass=sim.mass.to("g")
             )
             sim.run_update_volume(
-                n_steps=1e4, kT=1.0, tau_kt=1.0, final_box_lengths=target_box
+                n_steps=1e4, kT=1.0, tau_kT=1.0, final_box_lengths=target_box
             )
 
         """
@@ -755,7 +755,7 @@ class Simulation(hoomd.simulation.Simulation):
             integrator_method=hoomd.md.methods.ConstantVolume,
             method_kwargs={
                 "thermostat": self._initialize_thermostat(
-                    {"kT": kT, "tau": tau_kt}
+                    {"kT": kT, "tau": tau_kT}
                 ),
                 "filter": self.integrate_group,
             },
@@ -838,7 +838,7 @@ class Simulation(hoomd.simulation.Simulation):
         n_steps,
         kT,
         pressure,
-        tau_kt,
+        tau_kT,
         tau_pressure,
         couple="xyz",
         box_dof=[True, True, True, False, False, False],
@@ -857,7 +857,7 @@ class Simulation(hoomd.simulation.Simulation):
             The temperature to use during the simulation.
         pressure: int or hoomd.variant.Ramp, required
             The pressure to use during the simulation.
-        tau_kt: float, required
+        tau_kT: float, required
             Thermostat coupling period (in simulation time units).
         tau_pressure: float, required
             Barostat coupling period.
@@ -889,7 +889,7 @@ class Simulation(hoomd.simulation.Simulation):
                 "gamma": gamma,
                 "filter": self.integrate_group,
                 "thermostat": self._initialize_thermostat(
-                    {"kT": kT, "tau": tau_kt}
+                    {"kT": kT, "tau": tau_kT}
                 ),
             },
         )
@@ -908,7 +908,7 @@ class Simulation(hoomd.simulation.Simulation):
         self,
         n_steps,
         kT,
-        tau_kt,
+        tau_kT,
         thermalize_particles=True,
         write_at_start=True,
     ):
@@ -920,7 +920,7 @@ class Simulation(hoomd.simulation.Simulation):
             Number of steps to run the simulation.
         kT: int or hoomd.variant.Ramp, required
             The temperature to use during the simulation.
-        tau_kt: float, required
+        tau_kT: float, required
             Thermostat coupling period (in simulation time units).
         thermalize_particles: bool, default True
             When set to True, assigns random velocities to all particles.
@@ -934,7 +934,7 @@ class Simulation(hoomd.simulation.Simulation):
             integrator_method=hoomd.md.methods.ConstantVolume,
             method_kwargs={
                 "thermostat": self._initialize_thermostat(
-                    {"kT": kT, "tau": tau_kt}
+                    {"kT": kT, "tau": tau_kT}
                 ),
                 "filter": self.integrate_group,
             },
@@ -1080,7 +1080,7 @@ class Simulation(hoomd.simulation.Simulation):
                               scale_charges=True)
             sim = Simulation(initial_state=pps_system.hoomd_snapshot,
                              forcefield=pps_system.hoomd_forcefield)
-            sim.run_NVT(n_steps=1e3, kT=1.0, tau_kt=1.0)
+            sim.run_NVT(n_steps=1e3, kT=1.0, tau_kT=1.0)
             sim.pickle_forcefield("pps_forcefield.pickle")
             with open("pps_forcefield.pickle", "rb") as f:
                 pps_forcefield = pickle.load(f)
@@ -1130,7 +1130,7 @@ class Simulation(hoomd.simulation.Simulation):
                               scale_charges=True)
             sim = Simulation(initial_state=pps_system.hoomd_snapshot,
                              forcefield=pps_system.hoomd_forcefield)
-            sim.run_NVT(n_steps=1e3, kT=1.0, tau_kt=1.0)
+            sim.run_NVT(n_steps=1e3, kT=1.0, tau_kT=1.0)
             sim.pickle_forcefield("pps_forcefield.pickle")
             sim.save_restart_gsd("pps_restart.gsd")
             with open("pps_forcefield.pickle", "rb") as f:
