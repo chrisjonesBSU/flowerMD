@@ -1,8 +1,8 @@
 import itertools
 
+import freud
 import hoomd
 import numpy as np
-from cmeutils.gsd_utils import get_molecule_cluster
 
 from flowermd.base import Simulation
 
@@ -24,10 +24,11 @@ class PrimitivePathAnalysis(Simulation):
         # TODO Check initial state for type? If GSD file, take last frame, enforce frame only?
         self.head_particle_index = head_particle_index
         self.tail_particle_index = tail_particle_index
-        self.frame, self.head_tail_indices = self._update_frame(initial_state)
-        super(PrimitivePathAnalysis, self).__init(
+        self.frame = initial_state
+        self.head_tail_indices = self._update_frame()
+        super(PrimitivePathAnalysis, self).__init__(
             initial_state=self.frame,
-            forcefield=None,
+            forcefield=[],
             device=device,
             seed=seed,
             gsd_write_freq=gsd_write_freq,
@@ -75,7 +76,8 @@ class PrimitivePathAnalysis(Simulation):
 
     def _update_frame(self):
         """"""
-        cluster, cl_props = get_molecule_cluster(snap=self.frame)
+        cluster, cl_props = self.get_molecule_cluster(snap=self.frame)
+        self.cluster = cluster
         n_chains = len(cluster.cluster_keys)
         types_list = [f"C{i}" for i in range(n_chains)]
         self.frame.particles.types = types_list
@@ -84,7 +86,8 @@ class PrimitivePathAnalysis(Simulation):
         for idx, indices in enumerate(cluster.cluster_keys):
             type_ids[indices] = idx
         self.frame.particles.typeid = type_ids
-        self.frame.particles.velocity = None  # Zero out the particle velocities
+        # Zero out the particle velocities
+        self.frame.particles.velocity = None
         # Add bonds
         bond_types = []
         bond_ids = []
@@ -93,7 +96,7 @@ class PrimitivePathAnalysis(Simulation):
 
         for group in self.frame.bonds.group:
             type1 = self.frame.particles.types[
-                self.rame.particles.typeid[group[0]]
+                self.frame.particles.typeid[group[0]]
             ]
             type2 = self.frame.particles.types[
                 self.frame.particles.typeid[group[1]]
@@ -111,8 +114,8 @@ class PrimitivePathAnalysis(Simulation):
         # Index numbers for head and tail particles of each chain
         head_tail_indices = []
         for indices in cluster.cluster_keys:
-            head_tail_indices.append(indices[self.head_index])
-            head_tail_indices.append(indices[self.tail_index])
+            head_tail_indices.append(indices[self.head_particle_index])
+            head_tail_indices.append(indices[self.tail_particle_index])
         return head_tail_indices
 
     def _create_forces(
@@ -145,3 +148,49 @@ class PrimitivePathAnalysis(Simulation):
             lj.params[pair] = dict(epsilon=0, sigma=0)
             lj.r_cut[pair] = 0
         return lj, bond
+
+    def get_molecule_cluster(self, snap):
+        """Find molecule index for each particle.
+
+        Compute clusters of bonded molecules and return an array of the molecule
+        index of each particle.
+        Pass in either a gsd file or a snapshot, but not both
+
+        Parameters
+        ----------
+        gsd_file : str, default None
+            Filename of the gsd trajectory
+        snap : gsd.hoomd.Frame, default None
+            Trajectory snapshot.
+        gsd_frame : int, default -1
+            Frame number of gsd_file to use to compute clusters.
+
+        Returns
+        -------
+        numpy.ndarray (N_particles,)
+        """
+        system = freud.AABBQuery.from_system(snap)
+        n_query_points = n_points = snap.particles.N
+        query_point_indices = snap.bonds.group[:, 0]
+        point_indices = snap.bonds.group[:, 1]
+        box = freud.box.Box(
+            snap.configuration.box[0],
+            snap.configuration.box[1],
+            snap.configuration.box[2],
+        )
+        vectors = box.wrap(
+            snap.particles.position[query_point_indices]
+            - snap.particles.position[point_indices]
+        )
+        nlist = freud.NeighborList.from_arrays(
+            num_query_points=n_query_points,
+            num_points=n_points,
+            query_point_indices=query_point_indices,
+            point_indices=point_indices,
+            vectors=vectors,
+        )
+        cluster = freud.cluster.Cluster()
+        cluster.compute(system=system, neighbors=nlist)
+        cl_props = freud.cluster.ClusterProperties()
+        cl_props.compute(system, cluster.cluster_idx)
+        return cluster, cl_props

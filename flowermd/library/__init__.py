@@ -25,5 +25,6 @@ from .polymers import (
     PEKK_para,
     PolyEthylene,
 )
+from .simulations.ppa import PrimitivePathAnalysis
 from .simulations.tensile import Tensile
 from .surfaces import Graphene
