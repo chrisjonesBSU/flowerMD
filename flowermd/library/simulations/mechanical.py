@@ -101,7 +101,7 @@ class Shear(Simulation):
         period,
         strain=None,
         shear_length=None,
-        ensemble="NVT"
+        ensemble="NVT",
     ):
         """Run a shear simulation.
 
@@ -147,12 +147,6 @@ class Shear(Simulation):
             self.run_NVE(n_steps=n_steps + 1, kT=kT)
         self.operations.updaters.remove(particle_updater)
 
-    def run_ultrasonic_shearing(self, amplitude, frequency, n_steps, period):
-        # amplitude: strain distance
-        # frequency: Use this to calculate num steps before switching dir
-        # period: n steps between particle updates
-        pass
-
 
 class Tensile(Simulation):
     """Tensile test simulation class.
@@ -197,12 +191,21 @@ class Tensile(Simulation):
             log_file_name=log_file_name,
             thermostat=thermostat,
         )
+        if not any([fix_ratio, fix_length]) or all([fix_ratio, fix_length]):
+            raise ValueError("Specify only one of fix_ratio or fix_length.")
         self.tensile_axis = np.asarray(tensile_axis)
         self.fix_ratio = fix_ratio
         self._axis_index = np.where(self.tensile_axis != 0)[0]
         self.initial_box = self.box_lengths_reduced
         self.initial_length = self.initial_box[self._axis_index]
-        self.fix_length = self.initial_length * fix_ratio
+        if fix_ratio:
+            self.fix_length = self.initial_length * fix_ratio
+        else:
+            # Check fix_length for units, convert to reduced units
+            if isinstance(fix_length, u.unyt_array):
+                fix_length = fix_length.to(self.reference_length.unit)
+                fix_length /= self.reference_length
+            self.fix_length = fix_length
         # Set up walls of fixed particles:
         snapshot = self.state.get_snapshot()
         positions = snapshot.particles.position[:, self._axis_index]
@@ -226,7 +229,16 @@ class Tensile(Simulation):
         )
         return delta_L / self.initial_length
 
-    def run_tensile(self, strain, n_steps, kT, tau_kT, period):
+    def run_tensile(
+        self,
+        n_steps,
+        kT,
+        tau_kT,
+        period,
+        strain=None,
+        tensile_length=None,
+        ensemble="NVT",
+    ):
         """Run a tensile test simulation.
 
         Parameters
@@ -241,11 +253,20 @@ class Tensile(Simulation):
             The period of the strain application.
 
         """
-        current_length = self.box_lengths_reduced[self._axis_index]
-        final_length = current_length * (1 + strain)
-        final_box = np.copy(self.box_lengths_reduced)
-        final_box[self._axis_index] = final_length
-        shift_by = (final_length - current_length) / (n_steps // period)
+        if all([strain, tensile_length]) or not any([strain, tensile_length]):
+            raise ValueError("Specify only one of strain or shear_length.")
+        if strain:
+            current_length = self.box_lengths_reduced[self._axis_index]
+            final_length = current_length * (1 + strain)
+            final_box = np.copy(self.box_lengths_reduced)
+            final_box[self._axis_index] = final_length
+            shift_by = (final_length - current_length) / (n_steps // period)
+        else:
+            if isinstance(tensile_length, u.unyt_array):
+                tensile_length = tensile_length.to(self.reference_length.unit)
+                tensile_length /= self.reference_length
+            shift_by = tensile_length / (n_steps // period)
+
         resize_trigger = hoomd.trigger.Periodic(period)
         box_ramp = hoomd.variant.Ramp(
             A=0, B=1, t_start=self.timestep, t_ramp=int(n_steps)
@@ -270,6 +291,9 @@ class Tensile(Simulation):
         )
         self.operations.updaters.append(box_resizer)
         self.operations.updaters.append(particle_updater)
-        self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kT=tau_kT)
+        if ensemble.lower() == "nvt":
+            self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kT=tau_kT)
+        if ensemble.lower() == "nve":
+            self.run_NVE(n_steps=n_steps + 1, kT=kT)
         self.operations.updates.remove(box_resizer)
         self.operations.updaters.remove(particle_updater)
