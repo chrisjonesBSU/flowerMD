@@ -25,5 +25,5 @@ from .polymers import (
     PEKK_para,
     PolyEthylene,
 )
-from .simulations.mechanical import Shear, Tensile
+from .simulations.mechanical import Shear, Tensile, OscillatingTensile
 from .surfaces import Graphene

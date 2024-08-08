@@ -42,6 +42,7 @@ class Shear(Simulation):
         seed=42,
         gsd_write_freq=1e4,
         gsd_file_name="trajectory.gsd",
+        gsd_max_buffer_size=64 * 1024 * 1024,
         log_write_freq=1e3,
         log_file_name="log.txt",
         thermostat=HOOMDThermostats.MTTK,
@@ -55,6 +56,7 @@ class Shear(Simulation):
             seed=seed,
             gsd_write_freq=gsd_write_freq,
             gsd_file_name=gsd_file_name,
+            gsd_max_buffer_size=gsd_max_buffer_size,
             log_write_freq=log_write_freq,
             log_file_name=log_file_name,
             thermostat=thermostat,
@@ -174,6 +176,7 @@ class Tensile(Simulation):
         seed=42,
         gsd_write_freq=1e4,
         gsd_file_name="trajectory.gsd",
+        gsd_max_buffer_size=64 * 1024 * 1024,
         log_write_freq=1e3,
         log_file_name="log.txt",
         thermostat=HOOMDThermostats.MTTK,
@@ -187,6 +190,7 @@ class Tensile(Simulation):
             seed=seed,
             gsd_write_freq=gsd_write_freq,
             gsd_file_name=gsd_file_name,
+            gsd_max_buffer_size=gsd_max_buffer_size,
             log_write_freq=log_write_freq,
             log_file_name=log_file_name,
             thermostat=thermostat,
@@ -216,6 +220,7 @@ class Tensile(Simulation):
         self.fix_left = hoomd.filter.Tags(left_tags.astype(np.uint32))
         self.fix_right = hoomd.filter.Tags(right_tags.astype(np.uint32))
         all_fixed = hoomd.filter.Union(self.fix_left, self.fix_right)
+        self.fixed_particles = all_fixed
         # Set the group of particles to be integrated over
         self.integrate_group = hoomd.filter.SetDifference(
             hoomd.filter.All(), all_fixed
@@ -278,7 +283,8 @@ class Tensile(Simulation):
             box2=final_box,
             variant=box_ramp,
             trigger=resize_trigger,
-            filter=hoomd.filter.Null(),
+            #filter=hoomd.filter.Null(),
+            filter=self.fixed_particles,
         )
         particle_puller = PullParticles(
             shift_by=shift_by / 2,
@@ -292,10 +298,176 @@ class Tensile(Simulation):
             trigger=resize_trigger, action=particle_puller
         )
         self.operations.updaters.append(box_resizer)
-        self.operations.updaters.append(particle_updater)
+        #self.operations.updaters.append(particle_updater)
         if ensemble.lower() == "nvt":
             self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kT=tau_kT)
         if ensemble.lower() == "nve":
             self.run_NVE(n_steps=n_steps + 1, kT=kT)
         self.operations.updaters.remove(box_resizer)
-        self.operations.updaters.remove(particle_updater)
+        #self.operations.updaters.remove(particle_updater)
+
+
+class OscillatingTensile(Simulation):
+
+    """Tensile test simulation class.
+
+    Parameters
+    ----------
+    tensile_axis : tuple of int, required
+        The axis along which to apply the tensile strain.
+    fix_ratio : float, required
+        The ratio of the box length to fix particles at each end
+        of the tensile axis.
+
+    """
+
+    def __init__(
+        self,
+        initial_state,
+        forcefield,
+        tensile_axis,
+        fix_ratio=None,
+        fix_length=None,
+        reference_values=dict(),
+        dt=0.0001,
+        device=hoomd.device.auto_select(),
+        seed=42,
+        gsd_write_freq=1e4,
+        gsd_file_name="trajectory.gsd",
+        gsd_max_buffer_size=64 * 1024 * 1024,
+        log_write_freq=1e3,
+        log_file_name="log.txt",
+        thermostat=HOOMDThermostats.MTTK,
+    ):
+        super(OscillatingTensile, self).__init__(
+            initial_state=initial_state,
+            forcefield=forcefield,
+            reference_values=reference_values,
+            dt=dt,
+            device=device,
+            seed=seed,
+            gsd_write_freq=gsd_write_freq,
+            gsd_file_name=gsd_file_name,
+            gsd_max_buffer_size=gsd_max_buffer_size,
+            log_write_freq=log_write_freq,
+            log_file_name=log_file_name,
+            thermostat=thermostat,
+        )
+        if not any([fix_ratio, fix_length]) or all([fix_ratio, fix_length]):
+            raise ValueError("Specify only one of fix_ratio or fix_length.")
+        self.tensile_axis = np.asarray(tensile_axis)
+        self.fix_ratio = fix_ratio
+        self._axis_index = np.where(self.tensile_axis != 0)[0]
+        self.initial_box = self.box_lengths_reduced
+        self.initial_length = self.initial_box[self._axis_index]
+        if fix_ratio:
+            self.fix_length = self.initial_length * fix_ratio
+        else:
+            # Check fix_length for units, convert to reduced units
+            if isinstance(fix_length, u.unyt_array):
+                fix_length = fix_length.to(self.reference_length.unit)
+                fix_length /= self.reference_length
+            self.fix_length = fix_length
+        # Set up walls of fixed particles:
+        snapshot = self.state.get_snapshot()
+        positions = snapshot.particles.position[:, self._axis_index]
+        box_max = self.initial_length / 2
+        box_min = -box_max
+        left_tags = np.where(positions < (box_min + self.fix_length))[0]
+        right_tags = np.where(positions > (box_max - self.fix_length))[0]
+        self.fix_left = hoomd.filter.Tags(left_tags.astype(np.uint32))
+        self.fix_right = hoomd.filter.Tags(right_tags.astype(np.uint32))
+        all_fixed = hoomd.filter.Union(self.fix_left, self.fix_right)
+        self.fixed_particles = all_fixed
+        # Set the group of particles to be integrated over
+        self.integrate_group = hoomd.filter.SetDifference(
+            hoomd.filter.All(), all_fixed
+        )
+
+    def run_tensile(
+        self,
+        n_steps,
+        n_oscillations,
+        kT,
+        tau_kT,
+        period,
+        strain=None,
+        tensile_length=None,
+        ensemble="NVT",
+    ):
+        """Run a tensile test simulation.
+
+        Parameters
+        ----------
+        strain : float, required
+            The strain to apply to the simulation.
+        n_steps : int, required
+            The number of steps to run the simulation for.
+        tau_kT : float, required
+            Thermostat coupling period (in simulation time units).
+        period : int, required
+            The period of the strain application.
+
+        """
+        if all([strain, tensile_length]) or not any([strain, tensile_length]):
+            raise ValueError("Specify only one of strain or shear_length.")
+        if strain:
+            current_length = self.box_lengths_reduced[self._axis_index]
+            final_length = current_length * (1 + strain)
+            final_box = np.copy(self.box_lengths_reduced)
+            final_box[self._axis_index] = final_length
+            shift_by = (final_length - current_length) / (n_steps // period)
+        else:
+            if isinstance(tensile_length, u.unyt_array):
+                tensile_length = tensile_length.to(self.reference_length.unit)
+                tensile_length /= self.reference_length
+            shift_by = tensile_length / (n_steps // period)
+            final_box = np.copy(self.box_lengths_reduced)
+            final_box[self._axis_index] += tensile_length 
+
+        steps_per_osc = n_steps // n_oscillations
+        steps_per_box_update = steps_per_osc // 2 
+
+        big_box = np.copy(self.box_lengths_reduced)
+        big_box[self._axis_index] += tensile_length
+        small_box = np.copy(self.box_lengths_reduced)
+        small_box[self._axis_index] -= tensile_length
+        # Run initial box update
+        resize_trigger = hoomd.trigger.Periodic(1)
+        box_ramp = hoomd.variant.Ramp(
+            A=0, B=1, t_start=self.timestep, t_ramp=1000
+        )
+        box_resizer = hoomd.update.BoxResize(
+            box1=self.box_lengths_reduced,
+            box2=big_box,
+            variant=box_ramp,
+            trigger=resize_trigger,
+            filter=self.fixed_particles,
+        )
+        self.operations.updaters.append(box_resizer)
+        self.run_NVT(n_steps=1000, kT=kT, tau_kT=tau_kT)
+        self.operations.updaters.remove(box_resizer)
+        # Run cycle box updates
+        resize_trigger = hoomd.trigger.Periodic(period)
+        box_ramp = hoomd.variant.Cycle(
+                A=0,
+                B=1,
+                t_start=self.timestep,
+                t_A=0,
+                t_AB=int(steps_per_box_update),
+                t_B=0,
+                t_BA=int(steps_per_box_update),
+        )
+        box_resizer = hoomd.update.BoxResize(
+            box1=big_box,
+            box2=small_box,
+            variant=box_ramp,
+            trigger=resize_trigger,
+            filter=self.fixed_particles,
+        )
+        self.operations.updaters.append(box_resizer)
+        if ensemble.lower() == "nvt":
+            self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kT=tau_kT)
+        if ensemble.lower() == "nve":
+            self.run_NVE(n_steps=n_steps + 1, kT=kT)
+        self.operations.updaters.remove(box_resizer)
