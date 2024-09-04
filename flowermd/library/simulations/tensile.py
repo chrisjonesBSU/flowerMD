@@ -2,6 +2,7 @@
 
 import hoomd
 import numpy as np
+import unyt as u
 
 from flowermd.base.simulation import Simulation
 from flowermd.utils import HOOMDThermostats, PullParticles, StressStrainLogger
@@ -110,23 +111,52 @@ class Tensile(Simulation):
             )
         return np.concatenate(self._strain_logs)
 
-    @property
-    def stress_data(self):
-        """Combines stress data collected for all tensile runs."""
+    def stress_data(self, convert_to_real_units=False):
+        """Combines stress data collected for all tensile runs.
+
+        Parameters
+        ----------
+        convert_to_real_units : bool, default=False
+            If True, uses Tensile.reference_values to convert
+            stress values to real units (MPa).
+
+        """
         if not self.log_stress_real_time:
             raise ValueError(
                 "Stress data is not available. "
                 "Set `log_stress_real_time` to `True` to "
                 "log strain and stress data in real time. "
             )
+        if convert_to_real_units and not self.reference_values:
+            raise ValueError(
+                "Reference values were not provided, and are needed "
+                "to convert reduced pressure values to real pressure. "
+                "See flowermd.base.Simulation.reference_values"
+            )
+        if convert_to_real_units:
+            conv_factor = self.reference_energy.to("J/mol") / (
+                self.ref_distance.to("m") ** 3 * u.Avogadros_number_mks
+            )
+            return (
+                np.concatenate(self._stress_logs)
+                * conv_factor
+                * 1e-6
+                * u.Unit("MPa")
+            )
         return np.concatenate(self._stress_logs)
 
-    def compile_stress_strain_data(self):
+    def compile_stress_strain_data(self, convert_to_real_units=False):
         """Performs averaging with errors for the
         saved strain and stress run logs.
 
         Uses numpy.mean() and numpy.std() to
         calculate averages and errors.
+
+        Parameters
+        ----------
+        convert_to_real_units : bool, default=False
+            If True, uses Tensile.reference_values to convert
+            stress values to real units (MPa).
 
         Returns
         -------
@@ -145,20 +175,29 @@ class Tensile(Simulation):
         stress_stds = np.zeros_like(strains)
         for idx, strain in enumerate(strains):
             indices = np.where(self.strain_data == strain)[0]
-            stress_values = self.stress_data[indices]
+            stress_values = self.stress_data(
+                convert_to_real_units=convert_to_real_units
+            )[indices]
             stress_means[idx] = np.mean(stress_values)
             stress_stds[idx] = np.std(stress_values)
         return (strains, stress_means, stress_stds)
 
-    def save_stress_strain_data(self, filename):
+    def save_stress_strain_data(self, filename, convert_to_real_units=False):
         """Save the compiled stress vs strain data to file.
 
+        Parameters
+        ----------
         filename : str, required
             Filepath to save the numpy array to.
             Must be a file type compatible with numpy.save()
+        convert_to_real_units : bool, default=False
+            If True, uses Tensile.reference_values to convert
+            stress values to real units (MPa).
 
         """
-        strain, stress_avg, stress_std = self.compile_stress_strain_data()
+        strain, stress_avg, stress_std = self.compile_stress_strain_data(
+            convert_to_real_units=convert_to_real_units
+        )
         data = np.vstack([strain, stress_avg, stress_std]).T
         np.save(file=filename, arr=data)
 
