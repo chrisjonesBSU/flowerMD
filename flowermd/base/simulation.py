@@ -63,7 +63,7 @@ class Simulation(hoomd.simulation.Simulation):
         seed=42,
         gsd_write_freq=1e4,
         gsd_file_name="trajectory.gsd",
-        gsd_max_buffer_size=64 * 1024 * 1024,
+        gsd_max_buffer_size=64 * 512 * 512,
         log_write_freq=1e3,
         log_file_name="sim_data.txt",
         log_particles=False,
