@@ -1,4 +1,5 @@
 import gsd.hoomd
+import numpy as np
 
 from flowermd.library import OPLS_AA, Graphene
 
@@ -13,6 +14,10 @@ class TestSurfaces:
         )
         assert surface.system.n_particles == 4 * 2 * 2 * 3
         assert surface.system.n_bonds == 54
+        graphene_sheet = surface.system
+        for bond in graphene_sheet.bonds():
+            bond_L = np.linalg.norm(bond[1].pos - bond[0].pos)
+            assert np.round(bond_L, 3) == 0.142
 
     def test_graphene_with_periodicity(self):
         surface = Graphene(
