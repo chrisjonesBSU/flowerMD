@@ -2,9 +2,10 @@
 
 import hoomd
 import numpy as np
+import unyt as u
 
 from flowermd.base.simulation import Simulation
-from flowermd.utils import HOOMDThermostats, PullParticles
+from flowermd.utils import HOOMDThermostats, PullParticles, StressStrainLogger
 
 
 class Tensile(Simulation):
@@ -34,6 +35,8 @@ class Tensile(Simulation):
         gsd_file_name="trajectory.gsd",
         log_write_freq=1e3,
         log_file_name="log.txt",
+        log_stress_real_time=True,
+        log_particles=False,
         thermostat=HOOMDThermostats.MTTK,
     ):
         super(Tensile, self).__init__(
@@ -47,14 +50,16 @@ class Tensile(Simulation):
             gsd_file_name=gsd_file_name,
             log_write_freq=log_write_freq,
             log_file_name=log_file_name,
+            log_particles=log_particles,
             thermostat=thermostat,
         )
         self.tensile_axis = np.asarray(tensile_axis)
         self.fix_ratio = fix_ratio
-        self._axis_index = np.where(self.tensile_axis != 0)[0]
+        self._axis_index = np.where(self.tensile_axis != 0)[0].astype(int)
         self.initial_box = self.box_lengths_reduced
         self.initial_length = self.initial_box[self._axis_index]
         self.fix_length = self.initial_length * fix_ratio
+        self.log_stress_real_time = log_stress_real_time
         # Set up walls of fixed particles:
         snapshot = self.state.get_snapshot()
         positions = snapshot.particles.position[:, self._axis_index]
@@ -69,6 +74,23 @@ class Tensile(Simulation):
         self.integrate_group = hoomd.filter.SetDifference(
             hoomd.filter.All(), all_fixed
         )
+        # Set up logger and data structures
+        # Make a list of arrays, one for each time Tensile.run() is called.
+        self._initial_timestep = np.copy(self.timestep)
+        self._run_strain = None
+        self._run_stress = None
+        self._strain_logs = []
+        self._stress_logs = []
+        # Set up custom action
+        if self.log_stress_real_time:
+            tensile_log = StressStrainLogger(
+                sim=self, pull_axis=self._axis_index
+            )
+            tensile_logger = hoomd.update.CustomUpdater(
+                trigger=hoomd.trigger.Periodic(int(log_write_freq)),
+                action=tensile_log,
+            )
+            self.operations.updaters.append(tensile_logger)
 
     @property
     def strain(self):
@@ -77,6 +99,107 @@ class Tensile(Simulation):
             self.box_lengths_reduced[self._axis_index] - self.initial_length
         )
         return delta_L / self.initial_length
+
+    @property
+    def strain_data(self):
+        """Combines strain data collected for all tensile runs."""
+        if not self.log_stress_real_time:
+            raise ValueError(
+                "Strain data is not available. "
+                "Set `log_stress_real_time` to `True` to "
+                "log strain and stress data in real time. "
+            )
+        return np.concatenate(self._strain_logs)
+
+    def stress_data(self, convert_to_real_units=False):
+        """Combines stress data collected for all tensile runs.
+
+        Parameters
+        ----------
+        convert_to_real_units : bool, default=False
+            If True, uses Tensile.reference_values to convert
+            stress values to real units (MPa).
+
+        """
+        if not self.log_stress_real_time:
+            raise ValueError(
+                "Stress data is not available. "
+                "Set `log_stress_real_time` to `True` to "
+                "log strain and stress data in real time. "
+            )
+        if convert_to_real_units and not self.reference_values:
+            raise ValueError(
+                "Reference values were not provided, and are needed "
+                "to convert reduced pressure values to real pressure. "
+                "See flowermd.base.Simulation.reference_values"
+            )
+        if convert_to_real_units:
+            conv_factor = self.reference_energy.to("J/mol") / (
+                self.ref_distance.to("m") ** 3 * u.Avogadros_number_mks
+            )
+            return (
+                np.concatenate(self._stress_logs)
+                * conv_factor
+                * 1e-6
+                * u.Unit("MPa")
+            )
+        return np.concatenate(self._stress_logs)
+
+    def compile_stress_strain_data(self, convert_to_real_units=False):
+        """Performs averaging with errors for the
+        saved strain and stress run logs.
+
+        Uses numpy.mean() and numpy.std() to
+        calculate averages and errors.
+
+        Parameters
+        ----------
+        convert_to_real_units : bool, default=False
+            If True, uses Tensile.reference_values to convert
+            stress values to real units (MPa).
+
+        Returns
+        -------
+        tuple of numpy.ndarray
+            (strain, stress averages, stress errors)
+
+        """
+        if not self.log_stress_real_time:
+            raise ValueError(
+                "Stress data is not available. "
+                "Set `log_stress_real_time` to `True` to "
+                "log strain and stress data in real time. "
+            )
+        strains = np.unique(self.strain_data)
+        stress_means = np.zeros_like(strains)
+        stress_stds = np.zeros_like(strains)
+        for idx, strain in enumerate(strains):
+            indices = np.where(self.strain_data == strain)[0]
+            stress_values = self.stress_data(
+                convert_to_real_units=convert_to_real_units
+            )[indices]
+            stress_means[idx] = np.mean(stress_values)
+            stress_stds[idx] = np.std(stress_values)
+        return (strains, stress_means, stress_stds)
+
+    def save_stress_strain_data(self, filename, convert_to_real_units=False):
+        """Save the compiled stress vs strain data to file.
+
+        Parameters
+        ----------
+        filename : str, required
+            Filepath to save the numpy array to.
+            Must be a file type compatible with numpy.save()
+        convert_to_real_units : bool, default=False
+            If True, uses Tensile.reference_values to convert
+            stress values to real units (MPa).
+
+        """
+        strain, stress_avg, stress_std = self.compile_stress_strain_data(
+            convert_to_real_units=convert_to_real_units
+        )
+        data = np.vstack([strain, stress_avg, stress_std]).T
+        np.save(file=filename, arr=data)
 
     def run_tensile(self, strain, n_steps, kT, tau_kt, period):
         """Run a tensile test simulation.
@@ -93,6 +216,10 @@ class Tensile(Simulation):
             The period of the strain application.
 
         """
+        if self.log_stress_real_time:
+            log_array_size = int(n_steps // self.log_write_freq) + 1
+            self._run_strain = np.zeros(log_array_size)
+            self._run_stress = np.zeros(log_array_size)
         current_length = self.box_lengths_reduced[self._axis_index]
         final_length = current_length * (1 + strain)
         final_box = np.copy(self.box_lengths_reduced)
@@ -124,3 +251,6 @@ class Tensile(Simulation):
         self.operations.updaters.append(box_resizer)
         self.operations.updaters.append(particle_updater)
         self.run_NVT(n_steps=n_steps + 1, kT=kT, tau_kt=tau_kt)
+        if self.log_stress_real_time:
+            self._strain_logs.append(self._run_strain)
+            self._stress_logs.append(self._run_stress)
