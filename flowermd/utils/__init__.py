@@ -8,6 +8,7 @@ from .actions import (
     ShiftEpsilon,
     ShiftSigma,
     StdOutLogger,
+    StressStrainLogger,
     UpdateWalls,
 )
 from .base_types import HOOMDThermostats
