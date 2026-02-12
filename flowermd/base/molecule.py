@@ -13,7 +13,7 @@ from gmso.core.topology import Topology
 from gmso.external.convert_mbuild import from_mbuild, to_mbuild
 from gmso.parameterization import apply
 from grits import CG_Compound
-from mbuild.lib.recipes import Polymer as mbPolymer
+from mbuild import Polymer as mbPolymer
 
 from flowermd.base import BaseHOOMDForcefield, BaseXMLForcefield
 from flowermd.internal import check_return_iterable
