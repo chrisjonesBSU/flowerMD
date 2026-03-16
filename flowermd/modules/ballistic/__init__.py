@@ -1,2 +1,2 @@
-from .systems import ImpactSystem as ImpactSystem
-from .systems import Projectile as Projectile
+from .ballistic import ImpactSystem as ImpactSystem
+from .ballistic import Projectile as Projectile

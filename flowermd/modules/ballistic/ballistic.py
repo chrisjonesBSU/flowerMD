@@ -1,5 +1,9 @@
 import gsd.hoomd
+import hoomd
 import numpy as np
+
+from flowermd.base.simulation import Simulation
+from flowermd.utils import HOOMDThermostats
 
 
 class Projectile:
@@ -42,7 +46,7 @@ class ImpactSystem:
     ):
         self.target = target
         self.projectile = projectile
-        self.projectile_velocity = np.asarray(projectile_velocity)
+        self.projectile_velocity = float(projectile_velocity)
         self.impact_axis = np.asarray(impact_axis)
         self.box_expand = box_expand
         self.wall_sigma = wall_sigma
@@ -64,6 +68,16 @@ class ImpactSystem:
             self.target_snap.particles.N + self.projectile_snap.particles.N,
         )
         self.hoomd_snapshot = self._build()
+
+        self.target_filter = hoomd.filter.Tags(
+            range(self.target_snap.particles.N)
+        )
+        self.projectile_filter = hoomd.filter.Tags(
+            range(
+                self.target_snap.particles.N,
+                self.target_snap.particles.N + self.projectile_snap.particles.N,
+            )
+        )
 
     def _build(self):
         system = gsd.hoomd.Frame()
@@ -93,8 +107,13 @@ class ImpactSystem:
             self.target_snap.dihedrals.N + self.projectile_snap.dihedrals.N
         )
         system.pairs.N = self.target_snap.pairs.N + self.projectile_snap.pairs.N
+        projectile_velocities = np.zeros((self.projectile_snap.particles.N, 3))
+        projectile_velocities -= self.impact_axis * self.projectile_velocity
 
         pos = np.concatenate((target_xyz, projectile_xyz), axis=None)
+        velocity = np.concatenate(
+            (self.target_snap.particles.velocity, projectile_velocities), axis=0
+        )
         mass = np.concatenate(
             (
                 self.target_snap.particles.mass,
@@ -110,6 +129,7 @@ class ImpactSystem:
             axis=None,
         )
         system.particles.position = pos
+        system.particles.velocity = velocity
         system.particles.mass = mass
         system.particles.charge = charges
         system.particles.types = list(
@@ -152,3 +172,38 @@ class ImpactSystem:
             system.pairs.typeid = self.target_snap.pairs.typeid
             system.pairs.types = self.target_snap.pairs.types
         return system
+
+
+class ImpactSimulation(Simulation):
+    def __init__(
+        self,
+        initial_state,
+        forcefield,
+        impact_axis,
+        wall_sigma,
+        wall_epsilon,
+        wall_r_cut,
+        wall_r_extrap=0,
+        reference_values=dict(),
+        dt=0.0001,
+        device=hoomd.device.auto_select(),
+        seed=42,
+        gsd_write_freq=1e4,
+        gsd_file_name="impact.gsd",
+        log_write_freq=1e3,
+        log_file_name="impact_sim_data.txt",
+        thermostat=HOOMDThermostats.MTTK,
+    ):
+        super(ImpactSimulation, self).__init__(
+            initial_state=initial_state,
+            forcefield=forcefield,
+            reference_values=reference_values,
+            dt=dt,
+            device=device,
+            seed=seed,
+            gsd_write_freq=gsd_write_freq,
+            gsd_file_name=gsd_file_name,
+            log_write_freq=log_write_freq,
+            log_file_name=log_file_name,
+            thermostat=thermostat,
+        )
