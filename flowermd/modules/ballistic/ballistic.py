@@ -3,7 +3,8 @@ import hoomd
 import numpy as np
 
 from flowermd.base.simulation import Simulation
-from flowermd.utils import HOOMDThermostats
+from flowermd.utils.actions import StdOutLogger
+from flowermd.utils.base_types import HOOMDThermostats
 
 
 class Projectile:
@@ -212,6 +213,7 @@ class ImpactSimulation(Simulation):
         self.impact_axis = impact_axis
         self.target_filter = target_filter
         self.projectile_filter = projectile_filter
+        self.integrate_group = self.target_filter
 
         self.add_walls(
             self.impact_axis,
@@ -221,20 +223,57 @@ class ImpactSimulation(Simulation):
             wall_r_extrap,
         )
 
-    def _thermalize_system(self, kT):
-        """Assign random velocities to all particles.
+    def run_NVT(
+        self,
+        n_steps,
+        kT,
+        tau_kt,
+        thermalize_particles=True,
+        write_at_start=True,
+    ):
+        """Run the simulation in the NVT ensemble.
 
         Parameters
         ----------
-        kT : float or hoomd.variant.Ramp, required
-            The temperature to use during the thermalization.
+        n_steps: int, required
+            Number of steps to run the simulation.
+        kT: int or hoomd.variant.Ramp, required
+            The temperature to use during the simulation.
+        tau_kt: float, required
+            Thermostat coupling period (in simulation time units).
+        thermalize_particles: bool, default True
+            When set to True, assigns random velocities to all particles.
+        write_at_start : bool, default True
+            When set to True, triggers writers that evaluate to True
+            for the initial step to execute before the next simulation
+            time step.
 
         """
-        if isinstance(kT, hoomd.variant.Ramp):
-            self.state.thermalize_particle_momenta(
-                filter=self.target_filter, kT=kT.range[0]
-            )
-        else:
-            self.state.thermalize_particle_momenta(
-                filter=self.target_filter, kT=kT
-            )
+        self.set_integrator_method(
+            integrator_method=hoomd.md.methods.ConstantVolume,
+            method_kwargs={
+                "thermostat": self._initialize_thermostat(
+                    {"kT": kT, "tau": tau_kt}
+                ),
+                "filter": self.integrate_group,
+            },
+            replace=False,
+        )
+
+        self.set_integrator_method(
+            integrator_method=hoomd.md.methods.ConstantVolume,
+            method_kwargs={"filter": self.projectile_filter},
+            replace=False,
+        )
+
+        if thermalize_particles:
+            self._thermalize_system(kT)
+
+        std_out_logger = StdOutLogger(n_steps=n_steps, sim=self)
+        std_out_logger_printer = hoomd.update.CustomUpdater(
+            trigger=hoomd.trigger.Periodic(self._std_out_freq),
+            action=std_out_logger,
+        )
+        self.operations.updaters.append(std_out_logger_printer)
+        self.run(steps=n_steps, write_at_start=write_at_start)
+        self.operations.updaters.remove(std_out_logger_printer)

@@ -462,7 +462,7 @@ class Simulation(hoomd.simulation.Simulation):
     def method(self):
         """The integrator method used by the simulation."""
         if self.integrator:
-            return self.operations.integrator.methods[0]
+            return [i for i in self.operations.integrator.methods]
         else:
             raise RuntimeError(
                 "No integrator, or method has been set yet. "
@@ -593,7 +593,9 @@ class Simulation(hoomd.simulation.Simulation):
             required_thermostat_kwargs[k] = thermostat_kwargs[k]
         return self.thermostat(**required_thermostat_kwargs)
 
-    def set_integrator_method(self, integrator_method, method_kwargs):
+    def set_integrator_method(
+        self, integrator_method, method_kwargs, replace=True
+    ):
         """Create an initial (or updates the existing) integrator method.
 
         This doesn't need to be called directly;
@@ -606,6 +608,9 @@ class Simulation(hoomd.simulation.Simulation):
             Instance of one of the `hoomd.md.method` options.
         method_kwargs : dict, required
             A diction of parameter:value for the integrator method used.
+        replace : bool, optional default True
+            If True, then this new integrator method will replace all
+            existing integration methods.
 
         """
         if not self.integrator:  # Integrator and method not yet created
@@ -622,7 +627,10 @@ class Simulation(hoomd.simulation.Simulation):
             new_method = integrator_method(**method_kwargs)
             self.operations.integrator.methods = [new_method]
         else:  # Replace the existing integrator method
-            self.integrator.methods.remove(self.method)
+            if replace:
+                for method in self.method:
+                    self.integrator.methods.remove(method)
+
             new_method = integrator_method(**method_kwargs)
             self.integrator.methods.append(new_method)
 
@@ -961,6 +969,7 @@ class Simulation(hoomd.simulation.Simulation):
         )
         if thermalize_particles:
             self._thermalize_system(kT)
+
         std_out_logger = StdOutLogger(n_steps=n_steps, sim=self)
         std_out_logger_printer = hoomd.update.CustomUpdater(
             trigger=hoomd.trigger.Periodic(self._std_out_freq),
