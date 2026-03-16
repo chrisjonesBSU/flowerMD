@@ -180,6 +180,8 @@ class ImpactSimulation(Simulation):
         initial_state,
         forcefield,
         impact_axis,
+        target_filter,
+        projectile_filter,
         wall_sigma,
         wall_epsilon,
         wall_r_cut,
@@ -207,3 +209,32 @@ class ImpactSimulation(Simulation):
             log_file_name=log_file_name,
             thermostat=thermostat,
         )
+        self.impact_axis = impact_axis
+        self.target_filter = target_filter
+        self.projectile_filter = projectile_filter
+
+        self.add_walls(
+            self.impact_axis,
+            wall_sigma,
+            wall_epsilon,
+            wall_r_cut,
+            wall_r_extrap,
+        )
+
+    def _thermalize_system(self, kT):
+        """Assign random velocities to all particles.
+
+        Parameters
+        ----------
+        kT : float or hoomd.variant.Ramp, required
+            The temperature to use during the thermalization.
+
+        """
+        if isinstance(kT, hoomd.variant.Ramp):
+            self.state.thermalize_particle_momenta(
+                filter=self.target_filter, kT=kT.range[0]
+            )
+        else:
+            self.state.thermalize_particle_momenta(
+                filter=self.target_filter, kT=kT
+            )
