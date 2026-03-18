@@ -8,8 +8,9 @@ from flowermd.utils.base_types import HOOMDThermostats
 
 
 class Projectile:
-    def __init__(self, snapshot):
+    def __init__(self, snapshot, radius):
         self.snapshot = snapshot
+        self.radius = radius
 
     @classmethod
     def from_compound(cls, compound):
@@ -18,20 +19,20 @@ class Projectile:
         return cls(snapshot=snapshot)
 
     @classmethod
-    def LJ_bead(cls, mass=1, initial_pos=(0.0, 0.0, 0.0)):
+    def LJ_bead(cls, radius, mass, initial_pos=(0.0, 0.0, 0.0)):
         snapshot = gsd.hoomd.Frame()
         snapshot.particles.N = 1
         snapshot.particles.position = np.array(initial_pos)
         snapshot.particles.mass = mass
         snapshot.particles.types = ["PROJ"]
         snapshot.particles.typeid = [0]
-        return cls(snapshot=snapshot)
+        return cls(snapshot=snapshot, radius=radius)
 
     @classmethod
-    def from_gsd(cls, gsd_file, initial_frame=-1):
+    def from_gsd(cls, gsd_file, radius, initial_frame=-1):
         with gsd.hoomd.open(gsd_file, "r") as traj:
             snapshot = traj[initial_frame]
-            return cls(snapshot=snapshot)
+            return cls(snapshot=snapshot, radius=radius)
 
 
 class ImpactSystem:
@@ -93,9 +94,9 @@ class ImpactSystem:
         # Shift target coordinates to the left
         target_xyz[:, box_expand_index] -= shift
         if projectile_xyz.shape == (3,):
-            projectile_xyz[box_expand_index] += float(shift[0])
+            projectile_xyz[box_expand_index] += self.projectile.radius + 0.1
         else:
-            projectile_xyz[:, box_expand_index] += float(shift)
+            projectile_xyz[:, box_expand_index] += self.projectile.radius + 0.1
 
         system.particles.N = (
             self.target_snap.particles.N + self.projectile_snap.particles.N
