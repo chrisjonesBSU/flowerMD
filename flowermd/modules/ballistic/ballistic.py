@@ -40,6 +40,7 @@ class ImpactSystem:
         self,
         target,
         projectile,
+        projectile_radius,
         impact_axis,
         projectile_velocity,
         box_expand=2,
@@ -49,6 +50,7 @@ class ImpactSystem:
         self.target = target
         self.projectile = projectile
         self.projectile_velocity = float(projectile_velocity)
+        self.projectile_radius = projectile_radius
         self.impact_axis = np.asarray(impact_axis)
         self.box_expand = box_expand
         self.wall_sigma = wall_sigma
@@ -94,9 +96,9 @@ class ImpactSystem:
         # Shift target coordinates to the left
         target_xyz[:, box_expand_index] -= shift
         if projectile_xyz.shape == (3,):
-            projectile_xyz[box_expand_index] += self.projectile.radius + 0.1
+            projectile_xyz[box_expand_index] += self.projectile_radius + 0.1
         else:
-            projectile_xyz[:, box_expand_index] += self.projectile.radius + 0.1
+            projectile_xyz[:, box_expand_index] += self.projectile_radius + 0.1
 
         system.particles.N = (
             self.target_snap.particles.N + self.projectile_snap.particles.N
