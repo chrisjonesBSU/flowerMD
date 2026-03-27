@@ -68,9 +68,10 @@ class Simulation(hoomd.simulation.Simulation):
         seed=42,
         gsd_write_freq=1e4,
         gsd_file_name="trajectory.gsd",
-        gsd_max_buffer_size=64 * 1024 * 1024,
+        gsd_max_buffer_size=64 * 512 * 512,
         log_write_freq=1e3,
         log_file_name="sim_data.txt",
+        log_particles=False,
         thermostat=HOOMDThermostats.MTTK,
         constraint=None,
     ):
@@ -123,6 +124,7 @@ class Simulation(hoomd.simulation.Simulation):
         self._integrate_group = self._create_integrate_group(
             rigid=True if self._rigid_constraint else False
         )
+        self.log_particles = log_particles
         self._wall_forces = dict()
         self._create_state(self.initial_state)
         # Add a gsd and thermo props logger to sim operations
@@ -1280,8 +1282,12 @@ class Simulation(hoomd.simulation.Simulation):
 
     def _add_hoomd_writers(self):
         """Create gsd and log writers."""
+        if self.log_particles:
+            gsd_categories = ["scalar", "string", "sequence", "particle"]
+        else:
+            gsd_categories = ["scalar", "string", "sequence"]
         gsd_logger = hoomd.logging.Logger(
-            categories=["scalar", "string", "sequence"]
+            categories=gsd_categories
         )
         logger = hoomd.logging.Logger(categories=["scalar", "string"])
         gsd_logger.add(self, quantities=["timestep", "tps"])
@@ -1295,7 +1301,7 @@ class Simulation(hoomd.simulation.Simulation):
 
         for f in self._forcefield:
             logger.add(f, quantities=["energy"])
-            gsd_logger.add(f, quantities=["energy"])
+            gsd_logger.add(f, quantities=["energy", "forces", "energies"])
 
         gsd_writer = hoomd.write.GSD(
             filename=self.gsd_file_name,
