@@ -216,7 +216,6 @@ class ImpactSimulation(Simulation):
         self.impact_axis = impact_axis
         self.target_filter = target_filter
         self.projectile_filter = projectile_filter
-        self.integrate_group = self.target_filter
 
         self.add_walls(
             self.impact_axis,
@@ -252,6 +251,7 @@ class ImpactSimulation(Simulation):
             time step.
 
         """
+        self.integrate_group = self.target_filter
         self.set_integrator_method(
             integrator_method=hoomd.md.methods.ConstantVolume,
             method_kwargs={
@@ -262,9 +262,9 @@ class ImpactSimulation(Simulation):
             },
             replace=False,
         )
-
+        # Use NVE for the projectile particle
         self.set_integrator_method(
-            integrator_method=hoomd.md.methods.ConstantVolume,
+                integrator_method=hoomd.md.methods.ConstantVolume,
             method_kwargs={"filter": self.projectile_filter},
             replace=False,
         )
