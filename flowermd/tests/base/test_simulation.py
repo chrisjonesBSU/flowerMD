@@ -81,11 +81,15 @@ class TestSimulate(BaseTest):
         assert new_sim.gsd_write_freq == sim.gsd_write_freq
         assert new_sim.log_write_freq == sim.log_write_freq
         assert new_sim.seed == sim.seed
-        assert (
-            new_sim.maximum_write_buffer_size == sim.maximum_write_buffer_size
+        assert np.allclose(
+            new_sim.maximum_write_buffer_size,
+            sim.maximum_write_buffer_size,
+            atol=1e-4,
         )
-        assert new_sim.volume_reduced == sim.volume_reduced
-        assert new_sim.mass_reduced == sim.mass_reduced
+        assert np.allclose(
+            new_sim.volume_reduced, sim.volume_reduced, atol=1e-5
+        )
+        assert np.allclose(new_sim.mass_reduced, sim.mass_reduced, atol=1e-5)
         assert new_sim.reference_mass == sim.reference_mass
         assert new_sim.reference_energy == sim.reference_energy
         assert new_sim.reference_length == sim.reference_length

@@ -413,13 +413,13 @@ class System(ABC):
         topology.identify_connections()
         return topology
 
-    def _create_hoomd_forcefield(self, r_cut, nlist_buffer, pppm_kwargs):
+    def _create_hoomd_forcefield(self, r_cut, nlist, pppm_kwargs):
         """Create a list of HOOMD forces."""
         force_list = []
         ff, refs = to_hoomd_forcefield(
             top=self.gmso_system,
             r_cut=r_cut,
-            nlist_buffer=nlist_buffer,
+            nlist=nlist,
             pppm_kwargs=pppm_kwargs,
             auto_scale=False,
             base_units=(
@@ -504,7 +504,7 @@ class System(ABC):
         remove_hydrogens=False,
         pppm_resolution=(8, 8, 8),
         pppm_order=4,
-        nlist_buffer=0.4,
+        nlist=None,
         speedup_by_moltag=True,
         speedup_by_molgraph=False,
     ):
@@ -538,8 +538,11 @@ class System(ABC):
             The order used in
             `hoomd.md.long_range.pppm.make_pppm_coulomb_force` representing
             number of grid points in each direction to assign charges to.
-        nlist_buffer : float, default=0.4
-            Neighborlist buffer for simulation cell.
+        nlist : hoomd.md.nlist.Neighborlist, default None
+            Neighborlist instance for simulation cell.
+            If None, a cell nlist will be created by default using the
+            exclusions set by the foyer/GMSO forcefield.
+            see gmso.externl.convert_hoomd.py
         speedup_by_molgraph: bool, optional, default=False
             A flag to determine whether or not to search the system for repeated disconnected
             structures, otherwise known as molecules and type each molecule only once.
@@ -603,11 +606,11 @@ class System(ABC):
         pppm_kwargs = {"resolution": pppm_resolution, "order": pppm_order}
         self._ff_kwargs = {
             "r_cut": r_cut,
-            "nlist_buffer": nlist_buffer,
+            "nlist": nlist,
             "pppm_kwargs": pppm_kwargs,
         }
         self._hoomd_forcefield = self._create_hoomd_forcefield(
-            r_cut=r_cut, nlist_buffer=nlist_buffer, pppm_kwargs=pppm_kwargs
+            r_cut=r_cut, nlist=nlist, pppm_kwargs=pppm_kwargs
         )
         self._hoomd_snapshot = self._create_hoomd_snapshot()
 
