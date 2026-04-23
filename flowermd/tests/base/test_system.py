@@ -810,12 +810,12 @@ class TestSystem(BaseTest):
             r_cut=2.5,
             force_field=[OPLS_AA()],
             auto_scale=False,
-            nlist_buffer=0.5,
+            nlist=hoomd.md.nlist.Cell(buffer=0.5),
             pppm_resolution=(4, 4, 4),
             pppm_order=3,
         )
         assert system._ff_kwargs["r_cut"] == 2.5
-        assert system._ff_kwargs["nlist_buffer"] == 0.5
+        assert isinstance(system._ff_kwargs["nlist"], hoomd.md.nlist.Cell)
         assert system._ff_kwargs["pppm_kwargs"]["resolution"] == (4, 4, 4)
         assert system._ff_kwargs["pppm_kwargs"]["order"] == 3
 
