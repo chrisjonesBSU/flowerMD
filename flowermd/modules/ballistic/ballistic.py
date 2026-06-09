@@ -54,6 +54,7 @@ class ImpactSystem:
         self.impact_axis = np.asarray(impact_axis)
         self.box_expand = box_expand
         self.wall_sigma = wall_sigma
+
         if isinstance(target, str) and target.split(".")[1] == "gsd":
             with gsd.hoomd.open(target) as traj:
                 self.target_snap = traj[starting_frame]
